@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ניהול אירוח לשבת</title>
+    
+    <!-- גופנים -->
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- אייקונים -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- ספרייה ליצירת PDF ישיר -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- ספריית המרת תאריך עברי -->
+    <script src="https://cdn.jsdelivr.net/npm/hebcal@5.8.0/dist/index.min.js"></script>
+
+    <style>
+        /* =========================================
+           עיצוב (CSS)
+           ========================================= */
+        :root {
+            --primary: #0f766e;        /* Teal 700 */
+            --primary-light: #f0fdfa;  /* Teal 50 */
+            --primary-hover: #115e59;  /* Teal 800 */
+            --accent: #d97706;         /* Amber 600 */
+            --accent-light: #fffbeb;
+            --bg-body: #f8fafc;        /* Slate 50 */
+            --bg-card: #ffffff;
+            --text-dark: #1e293b;      /* Slate 800 */
+            --text-gray: #64748b;      /* Slate 500 */
+            --danger: #ef4444;
+            --success: #10b981;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; font-family: 'Assistant', sans-serif; }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 50px;
+        }
+
+        /* --- Header --- */
+        header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 15px 20px;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .header-content {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-family: 'Rubik', sans-serif;
+            font-size: 1.4rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-btns button {
+            background: var(--bg-body);
+            border: 1px solid #cbd5e1;
+            color: var(--text-dark);
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: 0.2s;
+            margin-left: 5px;
+        }
+        .header-btns button:hover { background: #e2e8f0; }
+
+        /* --- Nav --- */
+        .nav-container {
+            background: white;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+        }
+        .nav-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: flex;
+            gap: 15px;
+            padding: 0 20px;
+            overflow-x: auto;
+        }
+        .nav-btn {
+            padding: 8px 16px;
+            border-radius: 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-gray);
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .nav-btn:hover { background: var(--bg-body); color: var(--primary); }
+        .nav-btn.active { background: var(--primary-light); color: var(--primary); }
+
+        /* --- Main Layout --- */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+            width: 100%;
+        }
+
+        .view-section { display: none; animation: fadeIn 0.3s ease-out; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- Add New Section --- */
+        .add-panel {
+            background: white;
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 25px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        input, select {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        input:focus, select:focus { border-color: var(--primary); }
+
+        .btn-primary {
+            background: var(--primary); color: white; border: none;
+            padding: 10px 20px; border-radius: 8px; cursor: pointer;
+            font-weight: bold; transition: 0.2s;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .btn-primary:hover { background: var(--primary-hover); }
+
+        /* --- Shabbat Card --- */
+        .shabbat-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card-header {
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-header h3 { font-family: 'Rubik', sans-serif; color: var(--primary); margin: 0; font-size: 1.2rem; cursor: pointer;}
+        .card-header .date { font-size: 0.9rem; color: var(--text-gray); margin-top: 2px; }
+
+        .action-icon {
+            width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+            border-radius: 6px; cursor: pointer; color: var(--text-gray); transition: 0.2s;
+            border: 1px solid transparent; background: white; margin-left: 5px;
+        }
+        .action-icon:hover { color: var(--primary); border-color: #cbd5e1; }
+        .action-icon.delete:hover { color: var(--danger); background: #fee2e2; border-color: #fca5a5; }
+        .action-icon.pdf:hover { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+        /* --- Tabs in Card --- */
+        .card-tabs { display: flex; border-bottom: 1px solid #e2e8f0; background: white; }
+        .card-tab {
+            flex: 1; text-align: center; padding: 12px; font-size: 0.9rem;
+            cursor: pointer; color: var(--text-gray); font-weight: 600;
+            border-bottom: 2px solid transparent;
+        }
+        .card-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--primary-light); }
+        
+        .tab-content { display: none; padding: 15px; min-height: 150px; }
+        .tab-content.active { display: block; }
+
+        /* --- Guests List --- */
+        .guest-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid #f1f5f9;
+        }
+        .guest-row:last-child { border-bottom: none; }
+        .guest-name { font-weight: 600; color: var(--text-dark); }
+        .guest-tags { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+        
+        /* --- Auto Complete --- */
+        .autocomplete-wrapper { position: relative; flex: 2; }
+        .suggestions-box {
+            position: absolute; top: 100%; left: 0; right: 0;
+            background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+            box-shadow: var(--shadow-md); z-index: 100; max-height: 200px; overflow: hidden;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem;
+        }
+        .suggestion-item:hover { background: var(--primary-light); }
+
+        /* עיצוב שדה קלט מורחב כמו בתמונה */
+        .full-width-input {
+            flex: 1 !important;
+            width: 100% !important;
+            padding: 12px 16px !important;
+            font-size: 1rem !important;
+            border: 2px solid #e2e8f0 !important;
+            border-radius: 10px !important;
+            transition: border-color 0.2s;
+        }
+        .full-width-input:focus {
+            border-color: var(--primary) !important;
+        }
+
+        /* --- Tooltip --- */
+        .custom-tooltip {
+            position: fixed;
+            background: #1e293b; color: white;
+            padding: 8px 12px; border-radius: 6px;
+            font-size: 0.85rem; z-index: 1000;
+            pointer-events: none; opacity: 0; transition: opacity 0.2s;
+            box-shadow: var(--shadow-md); max-width: 250px;
+        }
+
+        /* --- Calendar Grid --- */
+        .cal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .cal-item {
+            background: white; padding: 20px; border-radius: var(--radius); border: 1px solid #e2e8f0;
+            cursor: pointer; transition: 0.2s; position: relative;
+        }
+        .cal-item:hover { border-color: var(--primary); transform: translateY(-2px); }
+        .cal-item.has-event { background: var(--primary-light); border-color: var(--primary); }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); display: none; align-items: center; justify-content: center; z-index: 200;
+        }
+        .modal-box {
+            background: white; padding: 25px; border-radius: var(--radius);
+            width: 90%; max-width: 500px; box-shadow: var(--shadow-md);
+        }
+
+        /* --- Stats Tables --- */
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .stats-table th { background: #f1f5f9; padding: 10px; text-align: right; font-size: 0.9rem; }
+        .stats-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+
+        /* עיצוב בוחר צבעים עם עיגולים */
+        .color-picker {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .color-option {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        .color-option.selected {
+            border-color: #1e293b;
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #1e293b;
+        }
+
+        /* --- Help View --- */
+        #view-help .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #view-help h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        #view-help h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            border-bottom: 3px solid var(--primary);
+            padding-bottom: 10px;
+        }
+        #view-help h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        #view-help p {
+            line-height: 1.8;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        #view-help ul {
+            line-height: 2;
+            color: #444;
+            padding-right: 25px;
+        }
+        #view-help li {
+            margin-bottom: 8px;
+        }
+        #view-help .section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        #view-help .tech-feature {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        #view-help .step {
+            display: flex;
+            align-items: start;
+            gap: 15px;
+        }
+        #view-help .step-number {
+            background: var(--primary);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+
+        /* --- Navigation Styles --- */
+        .nav-desktop {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 10px 0;
+            margin-bottom: 20px;
+        }
+        .nav-mobile {
+            display: none; /* Hidden by default */
+            justify-content: space-around;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+            padding: 10px 0;
+            z-index: 100;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.2s;
+            color: var(--text-gray);
+            font-size: 0.9rem;
+        }
+        .nav-item.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-weight: bold;
+        }
+        .nav-item i {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header-content { flex-direction: column; gap: 10px; }
+            .add-panel { flex-direction: column; align-items: stretch; }
+            .nav-desktop { display: none; } /* Hide desktop nav on mobile */
+            .nav-mobile { display: flex; } /* Show mobile nav on mobile */
+        }
+    </style>
+</head>
+<body>
+
+<!-- Tooltip Container -->
+<div id="tooltip" class="custom-tooltip"></div>
+
+<header>
+    <div class="header-content">
+        <!-- אייקון חדש: בית -->
+        <h1 data-explain="זהו שם המערכת שלך"><i class="fa-solid fa-house-chimney"></i> ניהול אירוח לשבת</h1>
+        <div class="header-btns">
+            <button class="voice-wizard-trigger" onclick="app.addShabbatByVoice()" data-explain="הוסף שבת חדשה בעזרת הקול">
+                <i class="fa-solid fa-microphone"></i> עוזר קולי
+            </button>
+            <button onclick="app.exportBackup()" data-explain="לחץ כאן כדי לשמור גיבוי של כל הנתונים למחשב"><i class="fa-solid fa-download"></i> גיבוי</button>
+            <button onclick="document.getElementById('importFile').click()" data-explain="לחץ כאן כדי לטעון נתונים מקובץ גיבוי"><i class="fa-solid fa-upload"></i> שחזור</button>
+            <input type="file" id="importFile" hidden onchange="app.importBackup(this)">
+        </div>
+    </div>
+</header>
+
+<!-- Navigation -->
+<nav class="nav-desktop">
+    <div class="nav-item active" onclick="app.nav('dashboard', this)" data-explain="מסך הבית שבו רואים את כל השבתות והאורחים">
+        <i class="fa-solid fa-calendar-days"></i>
+        <span>לוח שבתות</span>
+    </div>
+    <div class="nav-item" onclick="app.nav('calendar', this)" data-explain="תצוגה חודשית של השבתות">
+        <i class="fa-solid fa-calendar"></i>
+        <span>לוח שנה</span>
+    </div>
+    <div class="nav-item" onclick="app.nav('contacts', this)" data-explain="מאגר כל האנשים שהתארחו אצלך בעבר">
+        <i class="fa-solid fa-address-book"></i>
+        <span>בנק אורחים</span>
+    </div>
+    <div class="nav-item" onclick="app.nav('stats', this)" data-explain="נתונים מעניינים על האירוח שלך">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>סטטיסטיקה</span>
+    </div>
+    <!-- הוספת כפתור הסבר לניווט -->
+    <div class="nav-item" onclick="app.nav('help', this)" data-explain="קבלת עזרה והסברים על השימוש במערכת">
+        <i class="fa-solid fa-circle-question"></i>
+        <span>הסבר</span>
+    </div>
+    <div class="nav-item" onclick="app.nav('search', this)" data-explain="חיפוש מתקדם באורחים ושבתות">
+        <i class="fa-solid fa-search"></i>
+        <span>חיפוש</span>
+    </div>
+    <div class="nav-item" onclick="app.nav('settings', this)" data-explain="הגדרות האתר והאפשרויות שלך">
+        <i class="fa-solid fa-gear"></i>
+        <span>הגדרות</span>
+    </div>
+</nav>
+
+<!-- Mobile Navigation -->
+<nav class="nav-mobile">
+    <div class="nav-item active" onclick="app.nav('dashboard', this)" data-explain="מסך הבית שבו רואים את כל השבתות והאורחים">
+        <i class="fa-solid fa-calendar-days"></i>
+    </div>
+    <div class="nav-item" onclick="app.nav('calendar', this)" data-explain="תצוגה חודשית של השבתות">
+        <i class="fa-solid fa-calendar"></i>
+    </div>
+    <div class="nav-item" onclick="app.nav('contacts', this)" data-explain="מאגר כל האנשים שהתארחו אצלך בעבר">
+        <i class="fa-solid fa-address-book"></i>
+    </div>
+    <div class="nav-item" onclick="app.nav('stats', this)" data-explain="נתונים מעניינים על האירוח שלך">
+        <i class="fa-solid fa-chart-line"></i>
+    </div>
+    <!-- הוספת כפתור הסבר לניווט מובייל -->
+    <div class="nav-item" onclick="app.nav('help', this)" data-explain="קבלת עזרה והסברים על השימוש במערכת">
+        <i class="fa-solid fa-circle-question"></i>
+    </div>
+    <div class="nav-item" onclick="app.nav('search', this)" data-explain="חיפוש מתקדם באורחים ושבתות">
+        <i class="fa-solid fa-search"></i>
+    </div>
+    <div class="nav-item" onclick="app.nav('settings', this)" data-explain="הגדרות האתר והאפשרויות שלך">
+        <i class="fa-solid fa-gear"></i>
+    </div>
+</nav>
+
+
+<div class="container">
+
+    <!-- DASHBOARD VIEW -->
+    <div id="view-dashboard" class="view-section active">
+        <!-- Add New Shabbat (Simplified) -->
+        <div class="add-panel" data-explain="כאן מוסיפים שבת חדשה למערכת. הקלד תאריך עברי ושם פרשה.">
+            <div style="flex:1;">
+                <label style="font-size:0.85rem; color:var(--text-gray);">תאריך השבת (עברי):</label>
+                <input type="text" id="newDate" placeholder='לדוגמה: כ"ב תמוז תשפ"ה' data-explain="הקלד תאריך עברי">
+            </div>
+            <div style="flex:1.5;">
+                <label style="font-size:0.85rem; color:var(--text-gray);">פרשה / אירוע:</label>
+                <input type="text" id="newParsha" list="parsha-list" placeholder="הקלד או בחר שם פרשה">
+                <datalist id="parsha-list">
+                    <option value="בראשית"><option value="נח"><option value="לך לך"><option value="וירא"><option value="חיי שרה"><option value="תולדות"><option value="ויצא"><option value="וישלח"><option value="וישב"><option value="מקץ"><option value="ויגש"><option value="ויחי"><option value="שמות"><option value="וארא"><option value="בא"><option value="בשלח"><option value="יתרו"><option value="משפטים"><option value="תרומה"><option value="תצווה"><option value="כי תשא"><option value="ויקהל"><option value="פקודי"><option value="ויקרא"><option value="צו"><option value="שמיני"><option value="תזריע"><option value="מצורע"><option value="אחרי מות"><option value="קדושים"><option value="אמור"><option value="בהר"><option value="בחוקותי"><option value="במדבר"><option value="נשא"><option value="בהעלותך"><option value="שלח לך"><option value="קורח"><option value="חוקת"><option value="בלק"><option value="פנחס"><option value="מטות"><option value="מסעי"><option value="דברים"><option value="ואתחנן"><option value="עקב"><option value="ראה"><option value="שופטים"><option value="כי תצא"><option value="כי תבוא"><option value="ניצבים"><option value="וילך"><option value="האזינו"><option value="וזאת הברכה"><option value="שבת חנוכה"><option value="שבת הגדול"><option value="שבת חזון"><option value="שבת נחמו">
+                </datalist>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:20px; flex-wrap:wrap;">
+                <button class="btn-primary" onclick="app.addShabbat()" data-explain="לחץ להוספת השבת החדשה">
+                    <i class="fa-solid fa-plus"></i> הוסף לוח שבת
+                </button>
+                <button class="voice-wizard-trigger" onclick="app.addShabbatByVoice()" data-explain="הוסף שבת בעזרת הקול">
+                    <i class="fa-solid fa-microphone"></i> הוסף בקול
+                </button>
+            </div>
+        </div>
+
+        <div id="shabbat-list"></div>
+    </div>
+
+    <!-- CALENDAR VIEW -->
+    <div id="view-calendar" class="view-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;" data-explain="שנה את החודש המוצג">
+            <button class="btn-primary" onclick="app.changeMonth(-1)" data-explain="חודש קודם"><i class="fa-solid fa-arrow-right"></i></button>
+            <h2 id="calTitle" style="color:var(--primary);" data-explain="שם החודש והשנה"></h2>
+            <button class="btn-primary" onclick="app.changeMonth(1)" data-explain="חודש הבא"><i class="fa-solid fa-arrow-left"></i></button>
+        </div>
+        <div id="calendar-grid" class="cal-grid" data-explain="רשת ימי החודש עם אירועים מסומנים"></div>
+    </div>
+
+    <!-- CONTACTS VIEW -->
+    <div id="view-contacts" class="view-section">
+        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" data-explain="ניהול בנק האורחים">
+            <h2 style="margin-bottom:15px; color:var(--primary);" data-explain="כאן מנהלים את רשימת האורחים הקבועים">בנק אורחים</h2>
+            <input type="text" placeholder="חיפוש באנשי קשר..." oninput="app.renderContacts(this.value)" style="width:100%; margin-bottom:20px;" data-explain="חפש אורחים לפי שם">
+            <!-- Add New Contact -->
+            <div class="add-panel" style="margin-bottom:20px;" data-explain="הוסף אורח חדש לבנק">
+                <div style="display:flex; gap:10px; align-items:center; width:100%; flex-wrap:wrap;">
+                    <input type="number" id="newContactCount" value="1" min="1" style="width:80px; text-align:center; padding:10px; border:1px solid #cbd5e1; border-radius:8px;" data-explain="מספר נפשות">
+                    <input type="text" id="newContactName" placeholder="שם האורח..." style="flex:1; min-width:140px; padding:10px; border:1px solid #cbd5e1; border-radius:8px;" data-explain="הקלד שם האורח">
+                    <button class="btn-primary" onclick="app.addNewContact()" style="padding:12px 18px;" data-explain="הוסף לבנק האורחים">
+                        <i class="fa-solid fa-plus"></i> הוסף אורח
+                    </button>
+                    <button class="voice-wizard-trigger" onclick="app.addContactByVoice()" style="padding:10px 14px;" data-explain="הוסף אורח לבנק בקול">
+                        <i class="fa-solid fa-microphone"></i> בקול
+                    </button>
+                </div>
+            </div>
+            <div id="contacts-list" class="cal-grid" data-explain="רשימת כל האורחים"></div>
+        </div>
+    </div>
+
+    <!-- HELP VIEW -->
+    <div id="view-help" class="view-section">
+        <div class="container">
+            <div style="text-align: center; margin-bottom: 40px;">
+                <h1 style="color: var(--primary); font-size: 2.5rem; margin-bottom: 10px;">📖 מדריך למערכת</h1>
+                <p style="color: #666; font-size: 1.1rem;">הסבר מפורט על כל הפונקציות והאפשרויות באתר</p>
+            </div>
+
+            <!-- תיאור כללי -->
+            <div class="section">
+                <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 15px; border-bottom: 3px solid var(--primary); padding-bottom: 10px;">תיאור כללי</h2>
+                <p style="line-height: 1.8; font-size: 1.1rem; color: #333;">
+                    מערכת ניהול מתקדמת לארגון אירוח אורחים בשבתות ובחגים. המערכת מאפשרת תכנון מסודר של ארוחות שבת, 
+                    ניהול רשימות אורחים, תכנון משימות, ומעקב סטטיסטי מפורט.
+                </p>
+            </div>
+
+            <!-- ממשקים ראשיים -->
+            <div class="section">
+                <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid var(--primary); padding-bottom: 10px;">ממשקים ראשיים</h2>
+                
+                <!-- לוח שנה -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">📅 לוח שנה</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">תצוגת לוח שנה חודשי המציגה את כל השבתות והחגים המתוכננים.</p>
+                    <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                        <li>תצוגת חודש</li>
+                        <li>ניווט בין חודשים (חצים קדימה/אחורה)</li>
+                        <li>סימון שבתות עם אורחים</li>
+                        <li>לחיצה על שבת להצגת פרטים מלאים</li>
+                    </ul>
+                </div>
+
+                <!-- לוח שבתות -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">🏠 לוח שבתות</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">ממשק ניהול מפורט של כל שבת ושבת.</p>
+                    <div style="margin-right: 15px;">
+                        <h4 style="color: #666; font-size: 1.2rem; margin-top: 15px; margin-bottom: 8px;">ניהול אורחים:</h4>
+                        <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                            <li>הוספת אורח חדש עם שם ומספר נפשות</li>
+                            <li>השלמה אוטומטית מבנק האורחים</li>
+                            <li>ספירה אוטומטית של סך הנפשות</li>
+                        </ul>
+                        <h4 style="color: #666; font-size: 1.2rem; margin-top: 15px; margin-bottom: 8px;">ניהול משימות:</h4>
+                        <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                            <li>הוספת משימה חדשה</li>
+                            <li>רשימת משימות מסודרת</li>
+                            <li>מחיקת משימה</li>
+                        </ul>
+                        <h4 style="color: #666; font-size: 1.2rem; margin-top: 15px; margin-bottom: 8px;">ייצוא וניהול:</h4>
+                        <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                            <li>הורדת PDF מעוצב לכל שבת</li>
+                            <li>מחיקת שבת שלמה</li>
+                            <li>הוספת הערות כלליות</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- בנק אורחים -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">👥 בנק אורחים</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">מאגר מרכזי של כל האורחים שאירחתם.</p>
+                    <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                        <li>הוספת אורח חדש לבנק</li>
+                        <li>רשימה אלפביתית של אורחים</li>
+                        <li>חיפוש אורחים</li>
+                        <li>תצוגת תאריך אירוח אחרון</li>
+                    </ul>
+                </div>
+
+                <!-- סטטיסטיקה -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">📊 סטטיסטיקה</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">מסך ניתוח נתונים ותובנות על דפוסי האירוח.</p>
+                    <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                        <li>אורחים שהיו פחות פעמים</li>
+                        <li>אורחים שלא הוזמנו הרבה זמן</li>
+                    </ul>
+                </div>
+
+                <!-- חיפוש -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">🔍 חיפוש</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">ממשק חיפוש מתקדם לאיתור מידע על שבתות ואורחים.</p>
+                    <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                        <li>חיפוש לפי פרשה: הצגת כל הפרטים על שבתות עם פרשה זו (אורחים, משימות, הערות)</li>
+                        <li>חיפוש לפי שם אורח: הצגת כל השבתות שהאורח הוזמן אליהן, כולל פרטי השבת (תאריך, פרשה, מספר נפשות, משימות, הערות)</li>
+                        <li>תצוגת תוצאות מפורטת בסגנון כרטיסיות</li>
+                        <li>השלמה אוטומטית לשמות אורחים ופרשות</li>
+                    </ul>
+                </div>
+
+                <!-- הגדרות -->
+                <div style="margin-bottom: 30px;">
+                    <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">⚙️ הגדרות</h3>
+                    <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">התאמה אישית של המערכת.</p>
+                    <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                        <li>בחירת צבע רקע ראשי (8 אפשרויות)</li>
+                        <li>בחירת צבע כפתורים (8 אפשרויות)</li>
+                        <li>בחירה ויזואלית עם עיגולים צבעוניים</li>
+                        <li>הוספה אוטומטית לבנק אורחים</li>
+                        <li>ניקוי נתונים</li>
+                        <li>ייצוא/ייבוא נתונים</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- תכונות טכניות -->
+            <div class="section">
+                <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid var(--primary); padding-bottom: 10px;">תכונות טכניות</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div class="tech-feature">
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">💾 שמירת נתונים</h4>
+                        <p style="color: #555; line-height: 1.6;">שמירה אוטומטית ב-LocalStorage, כל שינוי נשמר מיידית</p>
+                    </div>
+                    <div class="tech-feature">
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">🎨 ממשק משתמש</h4>
+                        <p style="color: #555; line-height: 1.6;">עיצוב נקי ומודרני עם תמיכה מלאה ב-RTL</p>
+                    </div>
+                    <div class="tech-feature">
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">📄 ייצוא PDF</h4>
+                        <p style="color: #555; line-height: 1.6;">PDF מעוצב ומסודר עם תמיכה בעברית מלאה</p>
+                    </div>
+                </div>
+            </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEARCH VIEW -->
+    <div id="view-search" class="view-section">
+        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" data-explain="ממשק חיפוש מתקדם">
+            <h2 style="margin-bottom:15px; color:var(--primary);" data-explain="כאן מחפשים מידע על שבתות ואורחים">חיפוש מתקדם</h2>
+            
+            <div class="card-tabs">
+                <div class="card-tab active" onclick="app.switchSearchTab(this, 'parsha')" data-explain="חיפוש לפי פרשה">חיפוש פרשה</div>
+                <div class="card-tab" onclick="app.switchSearchTab(this, 'guest')" data-explain="חיפוש לפי שם אורח">חיפוש אורח</div>
+            </div>
+
+            <div id="search-tab-parsha" class="tab-content active">
+                <div style="margin-top:15px;" data-explain="חפש לפי פרשה">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="search-parsha-input" list="parsha-list" class="full-width-input" placeholder="הקלד שם פרשה..." data-explain="הקלד פרשה לחיפוש">
+                        <button class="btn-primary" onclick="app.performParshaSearch()" style="min-width:180px; padding:12px 24px;" data-explain="חפש פרשה">
+                            <i class="fa-solid fa-search"></i> חפש
+                        </button>
+                    </div>
+                </div>
+                <div id="search-parsha-results" style="margin-top:20px;"></div>
+            </div>
+
+            <div id="search-tab-guest" class="tab-content">
+                <div style="margin-top:15px;" data-explain="חפש לפי שם אורח">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <input type="text" id="search-guest-input" class="full-width-input" placeholder="הקלד שם אורח..." oninput="app.showGuestSuggestions(this.value)" autocomplete="off" data-explain="הקלד שם אורח לחיפוש">
+                        <div id="search-guest-suggestions" class="suggestions-box" style="position:absolute; top:100%; left:0; right:0; z-index:100;"></div>
+                        <button class="btn-primary" onclick="app.performGuestSearch()" style="min-width:180px; padding:12px 24px;" data-explain="חפש אורח">
+                            <i class="fa-solid fa-search"></i> חפש
+                        </button>
+                    </div>
+                </div>
+                <div id="search-guest-results" style="margin-top:20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATS VIEW -->
+    <div id="view-stats" class="view-section">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;" data-explain="סטטיסטיקות שונות על האירוח">
+            <!-- שינוי טקסט מ"המון" ל"הרבה" -->
+            <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" data-explain="אורחים שלא הוזמנו זמן רב">
+                <h3 style="color:var(--accent); margin-bottom:10px;"><i class="fa-solid fa-clock-rotate-left"></i> לא הוזמנו הרבה זמן</h3>
+                <table class="stats-table" data-explain="טבלה עם אורחים והימים שעברו">
+                    <thead><tr><th>שם האורח</th><th>ביקור אחרון</th><th>ימים שעברו</th></tr></thead>
+                    <tbody id="stats-longest"></tbody>
+                </table>
+            </div>
+            
+            <!-- Invited least -->
+            <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" data-explain="אורחים שהוזמנו מעט פעמים">
+                <h3 style="color:var(--primary); margin-bottom:10px;"><i class="fa-solid fa-star-half-stroke"></i> הוזמנו הכי מעט</h3>
+                <table class="stats-table" data-explain="טבלה עם אורחים ומספר הביקורים">
+                    <thead><tr><th>שם האורח</th><th>מספר ביקורים</th></tr></thead>
+                    <tbody id="stats-least"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div id="view-settings" class="view-section">
+        <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;" data-explain="ממשק הגדרות האתר">
+            <h2 style="margin-bottom:15px; color:var(--primary);">הגדרות</h2>
+            
+            <!-- בוחר צבעים חדש עם עיגולים -->
+            <div style="margin-bottom:20px;" data-explain="בחר צבע רקע לאתר">
+                <label style="font-weight:600; display:block; margin-bottom:8px;">צבע רקע:</label>
+                <div class="color-picker" id="bgColorPicker"></div>
+            </div>
+            
+            <div style="margin-bottom:20px;" data-explain="בחר צבע כפתורים ראשי">
+                <label style="font-weight:600; display:block; margin-bottom:8px;">צבע כפתורים:</label>
+                <div class="color-picker" id="btnColorPicker"></div>
+            </div>
+            
+            <div style="margin-bottom:20px;" data-explain="הפעל/כבה הוספה אוטומטית לבנק">
+                <label>הוסף אורחים אוטומטית לבנק:</label>
+                <input type="checkbox" id="autoAddToBank" onchange="app.updateSettings()" data-explain="אם מסומן, אורחים חדשים בשבת יתווספו לבנק">
+            </div>
+            <div style="margin-bottom:20px;" data-explain="בחר מספר תוצאות סטטיסטיקה להצגה">
+                <label>מספר פריטים בסטטיסטיקה:</label>
+                <select id="statsLimit" onchange="app.updateSettings()">
+                    <option value="3">3 (ברירת מחדל)</option>
+                    <option value="5">5</option>
+                    <option value="10">10</option>
+                </select>
+            </div>
+            <div style="margin-bottom:20px;" data-explain="הפעל/כבה טולטיפים">
+                <label>הצג הסברים (טולטיפים):</label>
+                <input type="checkbox" id="showTooltips" onchange="app.updateSettings()" data-explain="אם מסומן, הסברים יופיעו בעכבר">
+            </div>
+            <div style="margin-bottom:20px;" data-explain="בחר גודל גופן">
+                <label>גודל גופן:</label>
+                <select id="fontSize" onchange="app.updateSettings()">
+                    <option value="1rem">רגיל</option>
+                    <option value="1.1rem">גדול</option>
+                    <option value="0.9rem">קטן</option>
+                </select>
+            </div>
+            <button class="btn-primary" onclick="app.resetSettings()" data-explain="אפס הגדרות לברירת מחדל">אפס הגדרות</button>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal for Calendar Details -->
+<div id="calModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h2 id="modalTitle" style="color:var(--primary); margin-bottom:5px;" data-explain="כותרת האירוע"></h2>
+        <div id="modalDate" style="color:#64748b; margin-bottom:20px;" data-explain="תאריך האירוע"></div>
+        <div id="modalContent" data-explain="פרטי האירוע"></div>
+        <button class="btn-primary" onclick="document.getElementById('calModal').style.display='none'" style="margin-top:20px; width:100%; justify-content:center;" data-explain="סגור את החלון">סגור</button>
+    </div>
+</div>
+
+<script>
+/**
+ * ניהול אירוח לשבת - גרסה 4
+ * הותאם במיוחד לדרישות המשתמש ולסינון נטפרי
+ */
+class App {
+    constructor() {
+        this.data = JSON.parse(localStorage.getItem('shabbatDataV4')) || [];
+        this.contacts = JSON.parse(localStorage.getItem('contactsDataV4')) || [];
+        this.settings = JSON.parse(localStorage.getItem('settingsV4')) || {
+            bgColor: '#f8fafc',
+            btnColor: '#0f766e',
+            autoAddToBank: true,
+            statsLimit: 3,
+            showTooltips: true,
+            fontSize: '1rem'
+        };
+        
+        this.bgColorOptions = [
+            { name: 'אפור בהיר', value: '#f8fafc' },
+            { name: 'לבן', value: '#ffffff' },
+            { name: 'כחול בהיר', value: '#e0f2fe' },
+            { name: 'צהוב בהיר', value: '#fefce8' },
+            { name: 'ירוק בהיר', value: '#f0fdf4' },
+            { name: 'סגול בהיר', value: '#faf5ff' },
+            { name: 'ורוד בהיר', value: '#fdf2f8' },
+            { name: 'כתום בהיר', value: '#fff7ed' }
+        ];
+        
+        this.btnColorOptions = [
+            { name: 'טורקיז', value: '#0f766e' },
+            { name: 'כחול', value: '#2563eb' },
+            { name: 'אדום', value: '#dc2626' },
+            { name: 'ירוק', value: '#16a34a' },
+            { name: 'סגול', value: '#7c3aed' },
+            { name: 'ורוד', value: '#db2777' },
+            { name: 'כתום', value: '#ea580c' },
+            { name: 'תכלת כהה', value: '#0369a1' }
+        ];
+        
+        this.currentMonth = new Date();
+        this.init();
+    }
+
+    // --- שמירה ---
+    save() {
+        // מיון: שבתות חדשות למעלה
+        this.data.sort((a, b) => new Date(b.date) - new Date(a.date));
+        localStorage.setItem('shabbatDataV4', JSON.stringify(this.data));
+        localStorage.setItem('contactsDataV4', JSON.stringify(this.contacts));
+        localStorage.setItem('settingsV4', JSON.stringify(this.settings));
+    }
+
+    // --- עזרים לתצוגת תאריך ---
+    // מחזיר את התאריך כפי שהוזן (כבר בעברית)
+    toGregorianDate(dateStr) {
+        if (!dateStr) return "";
+        return dateStr; // התאריך מאוחסן ישירות כמחרוזת עברית
+    }
+
+    generateId() { return Math.random().toString(36).substr(2, 9); }
+
+    // --- הוספת שבת ---
+    addShabbat() {
+        const date = document.getElementById('newDate').value.trim();
+        const parsha = document.getElementById('newParsha').value.trim();
+        
+        if (!date) return alert('נא להזין תאריך עברי');
+        
+        this.data.unshift({
+            id: this.generateId(),
+            date: date,          // תאריך עברי כמחרוזת טקסט
+            parsha: parsha || 'פרשת השבוע',
+            guests: [],
+            tasks: [],
+            generalNotes: '',
+        });
+
+        this.save();
+        this.renderDashboard();
+        document.getElementById('newDate').value = '';
+        document.getElementById('newParsha').value = '';
+    }
+
+    deleteShabbat(id) {
+        if(confirm('למחוק את השבת הזו?')) {
+            this.data = this.data.filter(s => s.id !== id);
+            this.save();
+            this.renderDashboard();
+        }
+    }
+
+    // --- אורחים ואנשי קשר ---
+    addGuest(sId) {
+        const nameInput = document.getElementById(`input-name-${sId}`);
+        const countInput = document.getElementById(`input-count-${sId}`);
+        const name = nameInput.value.trim();
+        const count = parseInt(countInput.value) || 1;
+
+        if (!name) return;
+
+        // הוספה לרשימת השבת
+        const s = this.data.find(x => x.id === sId);
+        s.guests.push({
+            id: this.generateId(),
+            name: name,
+            count: count,
+            tags: [] 
+        });
+
+        // הוספה אוטומטית לבנק אם מופעל בהגדרות
+        const existsInBank = this.contacts.some(c => c.name === name);
+        if (this.settings.autoAddToBank && !existsInBank) {
+            this.contacts.push({ id: this.generateId(), name: name, count: count, lastSeen: s.date });
+            this.contacts.sort((a,b) => a.name.localeCompare(b.name));
+        } else if (existsInBank) {
+            // עדכון תאריך אחרון
+            const c = this.contacts.find(c => c.name === name);
+            if(s.date > (c.lastSeen || '')) c.lastSeen = s.date;
+        }
+
+        nameInput.value = '';
+        countInput.value = 1;
+        this.closeSuggestions(sId);
+        this.save();
+        this.renderDashboard();
+    }
+
+    removeGuest(sId, gId) {
+        const s = this.data.find(x => x.id === sId);
+        s.guests = s.guests.filter(g => g.id !== gId);
+        this.save();
+        this.renderDashboard();
+    }
+
+    addNewContact() {
+        const name = document.getElementById('newContactName').value.trim();
+        const count = parseInt(document.getElementById('newContactCount').value) || 1;
+
+        if (!name) return;
+
+        const exists = this.contacts.some(c => c.name === name);
+        if (exists) return alert('אורח זה כבר קיים');
+
+        this.contacts.push({ id: this.generateId(), name: name, count: count, lastSeen: null });
+        this.contacts.sort((a,b) => a.name.localeCompare(b.name));
+
+        document.getElementById('newContactName').value = '';
+        document.getElementById('newContactCount').value = 1;
+
+        this.save();
+        this.renderContacts();
+    }
+
+    deleteContact(cId) {
+        if(confirm('למחוק איש קשר זה מהבנק?')) {
+            this.contacts = this.contacts.filter(c => c.id !== cId);
+            this.save();
+            this.renderContacts();
+        }
+    }
+
+    // --- מנגנון השלמה אוטומטית (3 תוצאות) ---
+    showSuggestions(sId, val) {
+        const box = document.getElementById(`sugg-${sId}`);
+        if (!val) { box.style.display = 'none'; return; }
+        
+        // סינון: מכיל את הטקסט, מקסימום 3 תוצאות
+        const matches = this.contacts
+            .filter(c => c.name.includes(val))
+            .slice(0, 3);
+            
+        if (matches.length === 0) { box.style.display = 'none'; return; }
+
+        box.innerHTML = matches.map(c => 
+            `<div class="suggestion-item" onclick="app.selectSuggestion('${sId}', '${c.name}', ${c.count || 1})">
+                ${c.name}
+            </div>`
+        ).join('');
+        box.style.display = 'block';
+    }
+
+    selectSuggestion(sId, name, count) {
+        document.getElementById(`input-name-${sId}`).value = name;
+        document.getElementById(`input-count-${sId}`).value = count;
+        this.closeSuggestions(sId);
+    }
+
+    closeSuggestions(sId) {
+        document.getElementById(`sugg-${sId}`).style.display = 'none';
+    }
+
+    downloadPdf(sId) {
+        const s = this.data.find(x => x.id === sId);
+        
+        // התאריך מאוחסן כמחרוזת עברית ישירות
+        const hebrewDate = s.date || '';
+        
+        // יצירת אלמנט זמני ל-PDF
+        const element = document.createElement('div');
+        element.style.direction = 'rtl';
+        element.style.fontFamily = 'Assistant, sans-serif';
+        element.style.padding = '30px';
+        element.style.maxWidth = '800px';
+        element.style.margin = '0 auto';
+        element.style.lineHeight = '1.6';
+        
+        const guestCount = s.guests.reduce((a,b)=>a+b.count,0);
+        
+        element.innerHTML = `
+            <div style="text-align:center; margin-bottom:30px; border-bottom:3px solid #0f766e; padding-bottom:20px;">
+                <h1 style="color:#0f766e; font-size:32px; margin-bottom:10px;">${s.parsha}</h1>
+                <h3 style="color:#64748b; font-size:18px;">${hebrewDate}</h3>
+            </div>
+            
+            <div style="margin-bottom:30px;">
+                <h2 style="color:#0f766e; font-size:24px; margin-bottom:15px; border-right:4px solid #0f766e; padding-right:10px;">
+                    רשימת אורחים (סה"כ ${guestCount} נפשות)
+                </h2>
+                ${s.guests.length > 0 ? `
+                    <table style="width:100%; border-collapse:collapse; margin-top:15px;">
+                        <thead>
+                            <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+                                <th style="padding:12px; text-align:right; font-size:16px;">שם האורח</th>
+                                <th style="padding:12px; text-align:center; font-size:16px; width:120px;">מספר נפשות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${s.guests.map((g, idx) => `
+                                <tr style="border-bottom:1px solid #e2e8f0; ${idx % 2 === 0 ? 'background:#f8fafc;' : ''}">
+                                    <td style="padding:10px; font-size:15px;"><strong>${g.name}</strong></td>
+                                    <td style="padding:10px; text-align:center; font-size:15px;">${g.count}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                ` : '<p style="color:#64748b; font-size:15px;">אין אורחים רשומים</p>'}
+            </div>
+            
+            <div style="margin-bottom:30px;">
+                <h2 style="color:#0f766e; font-size:24px; margin-bottom:15px; border-right:4px solid #0f766e; padding-right:10px;">
+                    משימות
+                </h2>
+                ${s.tasks.length > 0 ? `
+                    <ul style="padding-right:25px; margin:0;">
+                        ${s.tasks.map(t => `
+                            <li style="margin-bottom:8px; font-size:15px; line-height:1.5;">${t}</li>
+                        `).join('')}
+                    </ul>
+                ` : '<p style="color:#64748b; font-size:15px;">אין משימות</p>'}
+            </div>
+            
+            ${s.generalNotes ? `
+            <div style="margin-bottom:20px;">
+                <h2 style="color:#0f766e; font-size:24px; margin-bottom:15px; border-right:4px solid #0f766e; padding-right:10px;">
+                    הערות
+                </h2>
+                <div style="background:#fefce8; padding:15px; border-radius:8px; font-size:15px; line-height:1.6; border:1px solid #fde68a;">
+                    ${s.generalNotes.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+            ` : ''}
+            
+            <div style="text-align:center; margin-top:40px; padding-top:20px; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:12px;">
+                נוצר באמצעות מערכת ניהול אירוח לשבת
+            </div>
+        `;
+
+        // שימוש בספריית html2pdf
+        const opt = {
+            margin: [15, 15, 15, 15],
+            filename: `${s.parsha.replace(/\s+/g, '_')}_${s.date}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save();
+    }
+
+    // --- טאבים ותכנים ---
+    updateTasks(sId, val) { 
+        if(!val) return;
+        this.data.find(x => x.id === sId).tasks.push(val);
+        this.save(); this.renderDashboard();
+    }
+    
+    deleteTask(sId, idx) {
+        this.data.find(x => x.id === sId).tasks.splice(idx, 1);
+        this.save(); this.renderDashboard();
+    }
+
+    updateNotes(sId, val) {
+        this.data.find(x => x.id === sId).generalNotes = val;
+        this.save();
+    }
+
+    // --- רינדור (Rendering) ---
+    renderDashboard() {
+        const container = document.getElementById('shabbat-list');
+        container.innerHTML = this.data.map(s => {
+            const guestCount = s.guests.reduce((sum, g) => sum + g.count, 0);
+            return `
+            <div class="shabbat-card">
+                <div class="card-header">
+                    <div>
+                        <h3 data-explain="שם הפרשה או האירוע">${s.parsha}</h3>
+                        <div class="date" data-explain="תאריך לועזי">${this.toGregorianDate(s.date)} • ${guestCount} אורחים</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                         <div class="action-icon" onclick="app.editParshaByVoice('${s.id}')" title="ערוך תאריך/פרשה בקול" data-explain="ערוך תאריך ופרשה בעזרת הקול"><i class="fa-solid fa-microphone"></i></div>
+                         <div class="action-icon pdf" onclick="app.downloadPdf('${s.id}')" data-explain="הורד קובץ PDF של השבת הזו למחשב באופן ישיר"><i class="fa-solid fa-file-pdf"></i></div>
+                         <div class="action-icon delete" onclick="app.deleteShabbat('${s.id}')" data-explain="מחק את השבת הזו לחלוטין"><i class="fa-solid fa-trash"></i></div>
+                    </div>
+                </div>
+
+                <div class="card-tabs">
+                    <div class="card-tab active" onclick="app.switchTab(this, '${s.id}', 'guests')" data-explain="רשימת האורחים">אורחים</div>
+                    <div class="card-tab" onclick="app.switchTab(this, '${s.id}', 'tasks')" data-explain="רשימת משימות">משימות</div>
+                    <div class="card-tab" onclick="app.switchTab(this, '${s.id}', 'notes')" data-explain="הערות כלליות">הערות כלליות</div>
+                </div>
+
+                <div id="tab-guests-${s.id}" class="tab-content active">
+                    ${s.guests.map(g => `
+                        <div class="guest-row">
+                            <div><span class="guest-name">${g.name}</span></div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span style="background:#f1f5f9; padding:2px 8px; border-radius:10px; font-weight:bold;">${g.count}</span>
+                                <i class="fa-solid fa-xmark" style="cursor:pointer; color:#ef4444;" onclick="app.removeGuest('${s.id}', '${g.id}')"></i>
+                            </div>
+                        </div>
+                    `).join('')}
+                    
+                    <!-- פאנל הוספת אורח - ידני + קולי -->
+                    <div style="margin-top:15px;" data-explain="הוסף אורח חדש">
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input type="number" id="input-count-${s.id}" value="1" min="1" 
+                                   style="width:80px; text-align:center; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:1rem;" 
+                                   data-explain="מספר נפשות">
+                            <div class="autocomplete-wrapper" style="flex:1; position:relative; min-width:140px;">
+                                <input type="text" id="input-name-${s.id}" class="full-width-input" placeholder="שם האורח..." 
+                                       oninput="app.showSuggestions('${s.id}', this.value)" autocomplete="off" data-explain="הקלד שם אורח">
+                                <div id="sugg-${s.id}" class="suggestions-box"></div>
+                            </div>
+                            <button class="btn-primary" onclick="app.addGuest('${s.id}')" style="padding:12px 18px;" data-explain="הוסף את האורח">
+                                <i class="fa-solid fa-plus"></i> הוסף
+                            </button>
+                            <button class="voice-wizard-trigger" onclick="app.addGuestByVoice('${s.id}')" style="padding:10px 14px;" data-explain="הוסף אורח בקול">
+                                <i class="fa-solid fa-microphone"></i> בקול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-tasks-${s.id}" class="tab-content">
+                    <div style="margin-bottom:10px;">
+                        ${s.tasks.map((t, i) => `
+                            <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px dashed #eee; align-items:center;">
+                                <span style="flex:1;"><i class="fa-solid fa-check-circle" style="font-size:0.9rem; color:var(--primary); margin-left:8px;"></i>${t}</span>
+                                <i class="fa-solid fa-trash" style="cursor:pointer; color:#ef4444; padding:5px;" onclick="app.deleteTask('${s.id}', ${i})"></i>
+                            </div>`).join('')}
+                    </div>
+                    
+                    <!-- פאנל הוספת משימה - ידני + קולי -->
+                    <div style="margin-top:15px;" data-explain="הוסף משימה חדשה">
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input type="text" id="task-in-${s.id}" class="full-width-input" placeholder="הוסף משימה..." 
+                                   onkeydown="if(event.key==='Enter' && !event.nativeEvent?.isComposing && event.keyCode!==229){app.updateTasks('${s.id}', this.value); this.value='';}" 
+                                   data-explain="הקלד משימה" style="flex:2; min-width:140px;">
+                            <button class="btn-primary" onclick="const el=document.getElementById('task-in-${s.id}'); app.updateTasks('${s.id}', el.value); el.value='';" 
+                                    style="padding:12px 18px; justify-content:center;" data-explain="הוסף משימה">
+                                <i class="fa-solid fa-plus"></i> הוסף
+                            </button>
+                            <button class="voice-wizard-trigger" onclick="app.addTaskByVoice('${s.id}')" style="padding:10px 14px;" data-explain="הוסף משימה בקול">
+                                <i class="fa-solid fa-microphone"></i> בקול
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-notes-${s.id}" class="tab-content">
+                    <textarea style="width:100%; height:120px; padding:12px; border-radius:10px; border:2px solid #e2e8f0; font-size:1rem; resize:vertical;" 
+                        placeholder="רשום כאן הערות כלליות לשבת..."
+                        onblur="app.updateNotes('${s.id}', this.value)" data-explain="הקלד הערות">${s.generalNotes || ''}</textarea>
+                    <div style="margin-top:10px;">
+                        <button class="voice-wizard-trigger" onclick="app.editNotesByVoice('${s.id}')" style="padding:10px 16px; font-size:0.9rem;" data-explain="הוסף הערה בקול">
+                            <i class="fa-solid fa-microphone"></i> הכתב הערה בקול
+                        </button>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    switchTab(el, sId, name) {
+        const card = el.closest('.shabbat-card');
+        card.querySelectorAll('.card-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        card.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(`tab-${name}-${sId}`).classList.add('active');
+    }
+
+    // --- בנק אורחים ---
+    renderContacts(filter = '') {
+        const list = document.getElementById('contacts-list');
+        const filtered = this.contacts.filter(c => c.name.includes(filter));
+        
+        list.innerHTML = filtered.map(c => `
+            <div class="cal-item" style="cursor:default;" data-explain="פרטי אורח">
+                <div style="display:flex; justify-content:space-between;">
+                    <h3>${c.name}</h3>
+                    <i class="fa-solid fa-trash" style="cursor:pointer; color:#ef4444;" onclick="app.deleteContact('${c.id}')" data-explain="מחק מהבנק"></i>
+                </div>
+                <div style="font-size:0.9rem; color:#64748b;">ברירת מחדל: ${c.count || 1} נפשות</div>
+                <div style="font-size:0.8rem; color:#94a3b8; margin-top:5px;">ביקור אחרון: ${c.lastSeen ? this.toGregorianDate(c.lastSeen) : 'טרם'}</div>
+            </div>
+        `).join('');
+    }
+
+    changeMonth(delta) {
+        this.currentMonth.setMonth(this.currentMonth.getMonth() + delta);
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        grid.innerHTML = '';
+        
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        
+        const monthNamesHebrew = [
+            "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+            "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+        ];
+        
+        document.getElementById('calTitle').innerText = `${monthNamesHebrew[month]} ${year}`;
+
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            const dateObj = new Date(dateStr);
+            const shabbat = this.data.find(s => s.date === dateStr);
+            
+            // מציג רק ימי שישי/שבת או ימים שיש בהם אירוע
+            if (dateObj.getDay() === 6 || shabbat) {
+                const el = document.createElement('div');
+                el.className = `cal-item ${shabbat ? 'has-event' : ''}`;
+                el.innerHTML = `
+                    <div style="font-weight:bold; font-size:1.1rem;">${d}</div>
+                    <div style="font-size:0.9rem;">${shabbat ? shabbat.parsha : 'שבת'}</div>
+                `;
+                if(shabbat) {
+                    el.onclick = () => this.openCalModal(shabbat);
+                }
+                grid.appendChild(el);
+            }
+        }
+    }
+
+    openCalModal(s) {
+        const dateObj = new Date(s.date);
+        const monthNamesHebrew = [
+            "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+            "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+        ];
+        const hebrewDate = `${dateObj.getDate()} ${monthNamesHebrew[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+        
+        document.getElementById('modalTitle').innerText = s.parsha;
+        document.getElementById('modalDate').innerText = hebrewDate;
+        
+        const guestList = s.guests.length 
+            ? s.guests.map(g => `<li>${g.name} (${g.count})</li>`).join('')
+            : '<li>אין אורחים רשומים</li>';
+        
+        const tasksList = s.tasks.length 
+            ? s.tasks.map(t => `<li>${t}</li>`).join('')
+            : '<li>אין משימות</li>';
+        
+        document.getElementById('modalContent').innerHTML = `
+            <strong>אורחים:</strong>
+            <ul style="padding-right:20px; margin-bottom:15px;">${guestList}</ul>
+            <strong>משימות:</strong>
+            <ul style="padding-right:20px; margin-bottom:15px;">${tasksList}</ul>
+            ${s.generalNotes ? `
+                <strong>הערות:</strong>
+                <div style="background:#fefce8; padding:12px; border-radius:8px; margin-top:10px; border:1px solid #fde68a;">
+                    ${s.generalNotes.replace(/\n/g, '<br>')}
+                </div>
+            ` : ''}
+        `;
+        document.getElementById('calModal').style.display = 'flex';
+    }
+
+    // --- ניווט ---
+    // שינוי שם הפונקציה והוספת תמיכה בממשק ההסבר
+    nav(view, btn) {
+        document.querySelectorAll('.view-section').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active')); // עדכון ל-nav-item
+        document.getElementById(`view-${view}`).classList.add('active');
+        btn.classList.add('active');
+        
+        if(view === 'dashboard') this.renderDashboard();
+        if(view === 'contacts') this.renderContacts();
+        if(view === 'calendar') this.renderCalendar();
+        if(view === 'stats') this.renderStats();
+        // קריאה לפונקציה המתאימה לממשק ההסבר
+        if (view === 'help') this.renderHelp();
+        if (view === 'search') this.renderSearch();
+    }
+
+    // --- סטטיסטיקה מתקדמת ---
+    renderStats() {
+        // חישוב אורחים שלא היו הכי הרבה זמן
+        const now = new Date();
+        const guestStats = this.contacts.map(c => {
+            const lastDate = c.lastSeen ? new Date(c.lastSeen) : new Date(0); // 1970 אם לא היו
+            const diffTime = Math.abs(now - lastDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            
+            // ספירת ביקורים
+            const visits = this.data.filter(s => s.guests.some(g => g.name === c.name)).length;
+            
+            return { name: c.name, days: diffDays, visits: visits, lastSeen: c.lastSeen };
+        });
+
+        // מיון שלא היו הכי הרבה זמן (לפי הגדרה)
+        const longest = [...guestStats].filter(x => x.lastSeen).sort((a,b) => b.days - a.days).slice(0, this.settings.statsLimit);
+        document.getElementById('stats-longest').innerHTML = longest.map(x => 
+            `<tr><td>${x.name}</td><td>${this.toGregorianDate(x.lastSeen)}</td><td>${x.days} ימים</td></tr>`
+        ).join('') || '<tr><td colspan="3" style="text-align:center">אין מספיק נתונים</td></tr>';
+
+        // מיון שהוזמנו הכי פחות
+        const least = [...guestStats].sort((a,b) => a.visits - b.visits).slice(0, this.settings.statsLimit);
+        document.getElementById('stats-least').innerHTML = least.map(x => 
+            `<tr><td>${x.name}</td><td>${x.visits} פעמים</td></tr>`
+        ).join('') || '<tr><td colspan="2" style="text-align:center">אין מספיק נתונים</td></tr>';
+    }
+
+    renderSettings() {
+        // רינדור בוחר צבע רקע
+        const bgPicker = document.getElementById('bgColorPicker');
+        bgPicker.innerHTML = this.bgColorOptions.map(color => 
+            `<div class="color-option ${this.settings.bgColor === color.value ? 'selected' : ''}" 
+                  style="background-color: ${color.value};"
+                  onclick="app.selectBgColor('${color.value}')"
+                  title="${color.name}"></div>`
+        ).join('');
+        
+        // רינדור בוחר צבע כפתורים
+        const btnPicker = document.getElementById('btnColorPicker');
+        btnPicker.innerHTML = this.btnColorOptions.map(color => 
+            `<div class="color-option ${this.settings.btnColor === color.value ? 'selected' : ''}" 
+                  style="background-color: ${color.value};"
+                  onclick="app.selectBtnColor('${color.value}')"
+                  title="${color.name}"></div>`
+        ).join('');
+        
+        document.getElementById('autoAddToBank').checked = this.settings.autoAddToBank;
+        document.getElementById('statsLimit').value = this.settings.statsLimit;
+        document.getElementById('showTooltips').checked = this.settings.showTooltips;
+        document.getElementById('fontSize').value = this.settings.fontSize;
+    }
+    
+    selectBgColor(color) {
+        this.settings.bgColor = color;
+        this.save();
+        this.applySettings();
+        this.renderSettings();
+    }
+    
+    selectBtnColor(color) {
+        this.settings.btnColor = color;
+        this.save();
+        this.applySettings();
+        this.renderSettings();
+    }
+
+    updateSettings() {
+        this.settings.autoAddToBank = document.getElementById('autoAddToBank').checked;
+        this.settings.statsLimit = parseInt(document.getElementById('statsLimit').value);
+        this.settings.showTooltips = document.getElementById('showTooltips').checked;
+        this.settings.fontSize = document.getElementById('fontSize').value;
+        this.save();
+        this.applySettings();
+    }
+
+    resetSettings() {
+        if(confirm('לאפס הגדרות?')) {
+            this.settings = {
+                bgColor: '#f8fafc',
+                btnColor: '#0f766e',
+                autoAddToBank: true,
+                statsLimit: 3,
+                showTooltips: true,
+                fontSize: '1rem'
+            };
+            this.save();
+            this.renderSettings();
+            this.applySettings();
+        }
+    }
+
+    applySettings() {
+        document.documentElement.style.setProperty('--bg-body', this.settings.bgColor);
+        document.documentElement.style.setProperty('--primary', this.settings.btnColor);
+        document.documentElement.style.setProperty('--primary-hover', this.adjustColorBrightness(this.settings.btnColor, -20));
+        document.body.style.fontSize = this.settings.fontSize;
+        if (!this.settings.showTooltips) {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+    }
+    
+    // פונקציה עזר להכהות צבע
+    adjustColorBrightness(hex, percent) {
+        const num = parseInt(hex.replace("#",""), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) + amt;
+        const G = (num >> 8 & 0x00FF) + amt;
+        const B = (num & 0x0000FF) + amt;
+        return "#" + (0x1000000 + (R<255?R<1?0:R:255)*0x10000 +
+            (G<255?G<1?0:G:255)*0x100 + (B<255?B<1?0:B:255))
+            .toString(16).slice(1);
+    }
+
+    // --- Tooltip Logic (3 שניות) ---
+    initTooltips() {
+        let timer;
+        const tooltip = document.getElementById('tooltip');
+
+        document.addEventListener('mouseover', (e) => {
+            const el = e.target.closest('[data-explain]');
+            if (!el || !this.settings.showTooltips) return;
+            
+            const text = el.getAttribute('data-explain');
+            timer = setTimeout(() => {
+                tooltip.innerText = text;
+                tooltip.style.left = e.pageX + 10 + 'px';
+                tooltip.style.top = e.pageY + 10 + 'px';
+                tooltip.style.opacity = '1';
+            }, 3000); // 3 שניות המתנה
+        });
+        
+        document.addEventListener('mouseout', (e) => {
+            const el = e.target.closest('[data-explain]');
+            if (!el) return;
+            
+            clearTimeout(timer);
+            tooltip.style.opacity = '0';
+        });
+    }
+
+    // גיבוי ושחזור
+    exportBackup() {
+        const backup = { shabbat: this.data, contacts: this.contacts, settings: this.settings };
+        const blob = new Blob([JSON.stringify(backup)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+    }
+    
+    importBackup(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const d = JSON.parse(e.target.result);
+                this.data = d.shabbat || [];
+                this.contacts = d.contacts || [];
+                this.settings = d.settings || this.settings;
+                this.save();
+                location.reload();
+            } catch(x) { alert('קובץ לא תקין'); }
+        };
+        reader.readAsText(file);
+    }
+
+    renderHelp() {
+        // ממשק ההסבר סטטי ולא דורש רינדור דינמי
+        // התוכן כבר מוגדר ב-HTML
+    }
+
+    // --- ממשק חיפוש ---
+    renderSearch() {
+        // רינדור ראשוני ריק, החיפוש יפעל בלחיצה
+        document.getElementById('search-parsha-results').innerHTML = '';
+        document.getElementById('search-guest-results').innerHTML = '';
+    }
+
+    switchSearchTab(el, name) {
+        const tabs = el.closest('.card-tabs');
+        tabs.querySelectorAll('.card-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        document.querySelectorAll('#view-search .tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(`search-tab-${name}`).classList.add('active');
+    }
+
+    performParshaSearch() {
+        const val = document.getElementById('search-parsha-input').value.trim();
+        if (!val) return;
+
+        const results = this.data.filter(s => s.parsha.toLowerCase().includes(val.toLowerCase()));
+        const container = document.getElementById('search-parsha-results');
+        container.innerHTML = results.length > 0 ? results.map(s => this.renderShabbatCard(s, true)).join('') : '<p style="text-align:center; color:#64748b;">לא נמצאו תוצאות</p>';
+    }
+
+    performGuestSearch() {
+        const val = document.getElementById('search-guest-input').value.trim();
+        if (!val) return;
+
+        const results = this.data.filter(s => s.guests.some(g => g.name.toLowerCase().includes(val.toLowerCase())));
+        const container = document.getElementById('search-guest-results');
+        container.innerHTML = results.length > 0 ? results.map(s => this.renderShabbatCard(s, false, val)).join('') : '<p style="text-align:center; color:#64748b;">לא נמצאו תוצאות</p>';
+    }
+
+    renderShabbatCard(s, isParshaSearch = true, guestName = '') {
+        const guestCount = s.guests.reduce((sum, g) => sum + g.count, 0);
+        const highlightedGuests = isParshaSearch ? s.guests : s.guests.filter(g => g.name.toLowerCase().includes(guestName.toLowerCase()));
+        return `
+        <div class="shabbat-card" style="margin-bottom:20px;">
+            <div class="card-header">
+                <div>
+                    <h3>${s.parsha}</h3>
+                    <div class="date">${this.toGregorianDate(s.date)} • ${guestCount} אורחים</div>
+                </div>
+            </div>
+            <div style="padding:15px;">
+                <h4>אורחים:</h4>
+                ${highlightedGuests.map(g => `
+                    <div class="guest-row">
+                        <span class="guest-name">${g.name}</span>
+                        <span style="background:#f1f5f9; padding:2px 8px; border-radius:10px; font-weight:bold;">${g.count}</span>
+                    </div>
+                `).join('') || '<p>אין אורחים רשומים</p>'}
+                <h4 style="margin-top:15px;">משימות:</h4>
+                ${s.tasks.map(t => `<div style="padding:8px; border-bottom:1px dashed #eee;">${t}</div>`).join('') || '<p>אין משימות</p>'}
+                <h4 style="margin-top:15px;">הערות:</h4>
+                <div style="background:#fefce8; padding:10px; border-radius:8px;">${s.generalNotes ? s.generalNotes.replace(/\n/g, '<br>') : 'אין הערות'}</div>
+            </div>
+        </div>
+        `;
+    }
+
+    showGuestSuggestions(val) {
+        const box = document.getElementById('search-guest-suggestions');
+        if (!val) { box.style.display = 'none'; return; }
+        
+        const matches = this.contacts
+            .filter(c => c.name.includes(val))
+            .slice(0, 3);
+            
+        if (matches.length === 0) { box.style.display = 'none'; return; }
+
+        box.innerHTML = matches.map(c => 
+            `<div class="suggestion-item" onclick="app.selectGuestSuggestion('${c.name}')">
+                ${c.name}
+            </div>`
+        ).join('');
+        box.style.display = 'block';
+    }
+
+    selectGuestSuggestion(name) {
+        document.getElementById('search-guest-input').value = name;
+        document.getElementById('search-guest-suggestions').style.display = 'none';
+    }
+
+    init() {
+        this.renderDashboard();
+        this.applySettings();
+        this.initTooltips();
+        this.renderCalendar();
+        this.renderContacts();
+        this.renderStats();
+        this.renderSettings();
+        // קריאה לפונקציית הרינדור של ממשק ההסבר
+        this.renderHelp();
+    }
+}
+
+const app = new App();
+</script>
+
+<!-- מנוע האשף הקולי - חייב להיטען אחרי App -->
+<script src="voice-assistant.js"></script>
+</body>
+</html>

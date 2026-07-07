@@ -1,0 +1,57 @@
+{
+  "name": "shabbat-hosting-manager",
+  "version": "1.0.0",
+  "description": "ניהול אירוח לשבת - עוזר קולי",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.shabbat.hostingmanager",
+    "productName": "ניהול אירוח לשבת",
+    "copyright": "Copyright © 2025",
+    "directories": {
+      "buildResources": "../assets",
+      "output": "../dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "../public/**/*",
+      "../assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "../assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "../assets/icon.ico",
+      "uninstallerIcon": "../assets/icon.ico",
+      "installerHeaderIcon": "../assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ניהול אירוח לשבת",
+      "runAfterFinish": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "displayLanguageSelector": false,
+      "language": "1037"
+    }
+  }
+}
