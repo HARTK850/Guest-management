@@ -1,0 +1,73 @@
+name: Build Electron - Windows Setup.exe
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:      # הפעלה ידנית מהממשק
+
+permissions:
+  contents: write         # נדרש ליצירת Release
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # ===== 1. Clone =====
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ===== 2. Node.js =====
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: electron/package.json
+
+      # ===== 3. Install Electron dependencies =====
+      - name: Install Electron dependencies
+        working-directory: electron
+        run: npm install
+
+      # ===== 4. Build NSIS installer =====
+      - name: Build Windows installer (Setup.exe)
+        working-directory: electron
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run dist
+
+      # ===== 5. List output =====
+      - name: List build output
+        run: Get-ChildItem -Recurse dist/
+        shell: pwsh
+
+      # ===== 6. Upload artifact =====
+      - name: Upload Setup.exe as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShabbatHostingManager-Setup
+          path: dist/*.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      # ===== 7. Create GitHub Release (only on tag push) =====
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.exe
+          name: "ניהול אירוח לשבת ${{ github.ref_name }}"
+          body: |
+            ## גרסה ${{ github.ref_name }}
+            
+            ### הורדה
+            הורד את `Setup.exe` ולחץ להתקנה.
+            
+            ### דרישות
+            - Windows 10 / 11 (64-bit)
+            - מיקרופון (לשימוש בעוזר הקולי)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
