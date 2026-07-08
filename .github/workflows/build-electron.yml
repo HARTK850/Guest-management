@@ -36,7 +36,7 @@ jobs:
 
 
       # ==========================================
-      # 2. Setup Python environment
+      # 2. Setup Python
       # ==========================================
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -58,41 +58,39 @@ jobs:
 
 
       # ==========================================
-      # 4. Build Python speech executable
+      # 4. Build transcribe.exe
       # ==========================================
       - name: Build transcribe.exe from Python
         working-directory: electron
         run: |
-          pyinstaller ^
-            --onefile ^
-            --name transcribe ^
-            transcribe.py
+          pyinstaller --onefile --name transcribe transcribe.py
 
 
 
       # ==========================================
-      # 5. Verify Python executable exists
+      # 5. Verify transcribe.exe
       # ==========================================
-      - name: Check transcribe.exe
+      - name: Verify transcribe.exe exists
         working-directory: electron
+        shell: pwsh
         run: |
-          dir dist
-          if (!(Test-Path "dist\transcribe.exe")) {
-            echo "transcribe.exe was not created"
+          if (!(Test-Path "dist/transcribe.exe")) {
+            Write-Error "transcribe.exe was not created"
             exit 1
           }
-        shell: pwsh
+
+          Write-Host "transcribe.exe created successfully"
 
 
 
       # ==========================================
-      # 6. Copy executable next to Electron files
+      # 6. Copy transcribe.exe
       # ==========================================
-      - name: Copy transcribe.exe
+      - name: Copy transcribe.exe into Electron folder
         working-directory: electron
+        shell: pwsh
         run: |
-          copy dist\transcribe.exe transcribe.exe
-        shell: cmd
+          Copy-Item "dist/transcribe.exe" "transcribe.exe" -Force
 
 
 
@@ -119,47 +117,51 @@ jobs:
 
 
       # ==========================================
-      # 9. Check Electron files
+      # 9. Verify Electron files
       # ==========================================
-      - name: Verify Electron files
+      - name: Verify Electron build files
         working-directory: electron
+        shell: pwsh
         run: |
-          dir
+
           if (!(Test-Path "transcribe.exe")) {
-            echo "Missing transcribe.exe"
+            Write-Error "Missing electron/transcribe.exe"
             exit 1
           }
-        shell: pwsh
+
+          Write-Host "Electron files ready"
 
 
 
       # ==========================================
-      # 10. Build NSIS installer
+      # 10. Build Windows installer
       # ==========================================
-      - name: Build Windows installer
+      - name: Build Windows installer (Setup.exe)
         working-directory: electron
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         run: |
           npm run dist -- --publish never
 
 
 
       # ==========================================
-      # 11. Show build output
+      # 11. List build output
       # ==========================================
       - name: List build output
+        shell: pwsh
         run: |
           Get-ChildItem -Recurse dist/
-        shell: pwsh
 
 
 
       # ==========================================
-      # 12. Upload installer artifact
+      # 12. Upload installer
       # ==========================================
       - name: Upload Setup.exe artifact
         uses: actions/upload-artifact@v4
+
         with:
           name: ShabbatHostingManager-Setup
           path: dist/*.exe
@@ -169,13 +171,15 @@ jobs:
 
 
       # ==========================================
-      # 13. Create GitHub Release on tag
+      # 13. Create GitHub Release
       # ==========================================
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
+
         uses: softprops/action-gh-release@v2
 
         with:
+
           files: dist/*.exe
 
           name: "ניהול אירוח לשבת ${{ github.ref_name }}"
@@ -184,11 +188,12 @@ jobs:
             ## גרסה ${{ github.ref_name }}
 
             ### הורדה
-            הורד את קובץ ההתקנה Setup.exe והפעל אותו.
+            הורד את Setup.exe והפעל להתקנה.
 
             ### דרישות
-            - Windows 10 / 11 64-bit
+            - Windows 10 / 11 (64-bit)
             - מיקרופון לשימוש בעוזר הקולי
+
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
