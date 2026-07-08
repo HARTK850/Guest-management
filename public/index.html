@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עוזר ניהול אורחים בשבת - מערכת ניהול אירוח מתקדמת</title>
+    <meta name="description" content="מערכת ניהול מתקדמת לאירוח אורחים בשבתות עם תמיכה בקול, ייצוא PDF ותכנון משימות">
+    
+    <!-- Font Awesome לאיקונים -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- ספרייה ליצירת PDF ישיר -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- הגדרות שרת התימלול -->
+    <script>
+        // קביעת כתובת שרת התימלול
+        // בפיתוח: http://localhost:5000
+        window.VOICE_SERVER_URL = window.VOICE_SERVER_URL || (
+            window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000'
+            : window.location.origin + '/voice'
+        );
+        console.log('[Config] Voice Server URL:', window.VOICE_SERVER_URL);
+    </script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --light: #f8fafc;
+            --dark: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #1e293b;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .card {
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.2);
+            transform: translateY(-5px);
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .card h2 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 1.5rem;
+        }
+
+        .card p {
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: #1e40af;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: #64748b;
+        }
+
+        .btn-secondary:hover {
+            background: #475569;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-right: 4px solid var(--primary);
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            font-weight: bold;
+            font-size: 1.5rem;
+            margin-left: 15px;
+            margin-bottom: 15px;
+        }
+
+        .help-section {
+            max-width: 100%;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .content {
+                grid-template-columns: 1fr;
+            }
+
+            .section {
+                padding: 20px;
+            }
+        }
+
+        /* טיפולים לעוזר הקולי */
+        .voice-btn {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 70px;
+            height: 70px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.8rem;
+            box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .voice-btn:hover {
+            background: #1e40af;
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(37, 99, 235, 0.6);
+        }
+
+        .voice-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎖️ עוזר ניהול אורחים בשבת</h1>
+            <p>מערכת ניהול מתקדמת לתכנון ואירוח אורחים בשבתות ובחגים</p>
+        </div>
+
+        <div class="content">
+            <!-- כרטיס הוספת שבת -->
+            <div class="card" onclick="if(window.voiceWizard) window.voiceWizard.startFlow(FLOW_ADD_SHABBAT, {})">
+                <div class="card-icon">📅</div>
+                <h2>הוסף שבת חדשה</h2>
+                <p>הוסף שבת חדשה עם תאריך עברי ופרשת השבוע</p>
+                <button class="btn">התחל +</button>
+            </div>
+
+            <!-- כרטיס הוספת אורח -->
+            <div class="card" onclick="if(window.voiceWizard) window.voiceWizard.startFlow(FLOW_ADD_GUEST, {})">
+                <div class="card-icon">👥</div>
+                <h2>הוסף אורחים</h2>
+                <p>הוסף אורחים חדשים לשבת עם מספר הנפשות</p>
+                <button class="btn">התחל +</button>
+            </div>
+
+            <!-- כרטיס הוספת משימה -->
+            <div class="card" onclick="if(window.voiceWizard) window.voiceWizard.startFlow(FLOW_ADD_TASK, {})">
+                <div class="card-icon">✓</div>
+                <h2>הוסף משימות</h2>
+                <p>הוסף רשימת משימות (קניות, הכנות וכו')</p>
+                <button class="btn">התחל +</button>
+            </div>
+
+            <!-- כרטיס תוכן ראשי -->
+            <div class="card">
+                <div class="card-icon">📊</div>
+                <h2>ניתוח נתונים</h2>
+                <p>צפה בסטטיסטיקה מפורטת של האורחים וההיסטוריה</p>
+                <button class="btn" onclick="alert('עמוד הסטטיסטיקה בעדכון')">צפה בנתונים</button>
+            </div>
+
+            <!-- כרטיס הגדרות -->
+            <div class="card">
+                <div class="card-icon">⚙️</div>
+                <h2>הגדרות</h2>
+                <p>התאמה אישית של המערכת ניהול נתונים וגיבוי</p>
+                <button class="btn" onclick="alert('דף הגדרות בעדכון')">הגדרות</button>
+            </div>
+
+            <!-- כרטיס עזרה -->
+            <div class="card" onclick="document.getElementById('view-help').scrollIntoView({behavior: 'smooth'})">
+                <div class="card-icon">❓</div>
+                <h2>עזרה והדרכה</h2>
+                <p>קבל עזרה ודע כיצד להשתמש בתוכנה</p>
+                <button class="btn">קרא עוד</button>
+            </div>
+        </div>
+
+        <!-- קטע העזרה -->
+        <div id="view-help" class="help-section" style="padding: 40px 20px;">
+            <h2 style="color: var(--primary); font-size: 2rem; margin-bottom: 30px; text-align: center;">📚 מדריך המשתמש</h2>
+
+            <!-- התחלה מהירה -->
+            <div class="section" style="background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%); border: 2px solid var(--primary);">
+                <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid var(--primary); padding-bottom: 10px;">🚀 התחלה מהירה</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number">1</div>
+                            <div>
+                                <h4 style="color: var(--primary); margin: 0 0 8px 0;">הוסף שבת חדשה</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">הקלד תאריך עברי בלוח השבתות (למשל: כ"ב תמוז תשפ"ה)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number">2</div>
+                            <div>
+                                <h4 style="color: var(--primary); margin: 0 0 8px 0;">הוסף אורחים</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">הקלד שם אורח בכל שבת, או בחר מבנק האורחים</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number">3</div>
+                            <div>
+                                <h4 style="color: var(--primary); margin: 0 0 8px 0;">תכנן משימות</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">הוסף רשימת משימות (קניות, הכנות וכו')</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number">4</div>
+                            <div>
+                                <h4 style="color: var(--primary); margin: 0 0 8px 0;">הוסף הערות</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">רשום הערות חשובות או דברים לזכור</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number">5</div>
+                            <div>
+                                <h4 style="color: var(--primary); margin: 0 0 8px 0;">ייצא ל-PDF</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">לחץ על אייקון ה-PDF להורדת קובץ מעוצב</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 2px solid #fbbf24;">
+                        <div style="margin-bottom: 15px;">
+                            <div class="step-number" style="background: #fbbf24; color: #1f2937;">💡</div>
+                            <div>
+                                <h4 style="color: #d97706; margin: 0 0 8px 0;">טיפ: השתמש בעוזר הקולי</h4>
+                                <p style="color: #555; margin: 0; font-size: 0.95rem;">לחץ על כפתור 🎤 לתוספת נתונים בקול מהיר וקל</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- עוזר קולי -->
+            <div class="section" style="margin-bottom: 30px;">
+                <h3 style="color: var(--primary); font-size: 1.5rem; margin-bottom: 10px;">🎤 עוזר קולי</h3>
+                <p style="line-height: 1.8; color: #555; margin-bottom: 10px;">הדרך הקלה ביותר להוסיף נתונים בקול! לחץ על כפתור "עוזר קולי" בכל מקום.</p>
+                <ul style="line-height: 2; color: #444; padding-right: 25px;">
+                    <li><strong>הוספת שבת בקול:</strong> אמור את התאריך העברי והפרשה</li>
+                    <li><strong>הוספת אורח בקול:</strong> אמור את שם האורח ומספר הנפשות</li>
+                    <li><strong>הוספת משימה בקול:</strong> אמור כל משימה שצריך לעשות</li>
+                    <li><strong>הוספת הערות בקול:</strong> הכתב הערות כלליות על השבת</li>
+                    <li><strong>פקודות קוליות:</strong> אמור "הבא" או "סיימתי" לסיום</li>
+                </ul>
+            </div>
+
+            <!-- פתרון בעיות נפוצות -->
+            <div class="section" style="background: #fff7ed; border: 2px solid var(--warning);">
+                <h2 style="color: var(--warning); font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid var(--warning); padding-bottom: 10px;">🔧 פתרון בעיות נפוצות</h2>
+                
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: var(--warning); font-size: 1.2rem; margin-bottom: 8px;">❓ העוזר הקולי לא עובד</h4>
+                    <p style="color: #555; margin: 0 0 10px 0;"><strong>בדוק:</strong></p>
+                    <ul style="color: #444; line-height: 1.8; padding-right: 20px; margin: 0;">
+                        <li>האם דפדפן שלך תומך בקול? (Chrome, Edge, Firefox - כן)</li>
+                        <li>האם מיקרופון מחובר ופועל?</li>
+                        <li>האם אישרת גישה למיקרופון בדפדפן?</li>
+                        <li>האם שרת Python פועל על localhost:5000?</li>
+                        <li>נסה לרענן את הדף (Ctrl+R או Cmd+R)</li>
+                    </ul>
+                </div>
+
+                <div style="margin-bottom: 25px;">
+                    <h4 style="color: var(--warning); font-size: 1.2rem; margin-bottom: 8px;">❓ "שגיאת רשת" בעוזר הקולי</h4>
+                    <p style="color: #555; margin: 0 0 10px 0;"><strong>פתרון:</strong></p>
+                    <ul style="color: #444; line-height: 1.8; padding-right: 20px; margin: 0;">
+                        <li>ודא שרת Python פועל: <code>python3 voice_server.py</code></li>
+                        <li>בדוק שהשרת אמור להאזין על פورט 5000</li>
+                        <li>בדוק את Console של הדפדפן (F12 → Console) לשגיאות</li>
+                        <li>ודא שה-Google Speech API זמין בשרת שלך</li>
+                    </ul>
+                </div>
+
+                <div style="margin-bottom: 0;">
+                    <h4 style="color: var(--warning); font-size: 1.2rem; margin-bottom: 8px;">❓ כיצד להפעיל את שרת התימלול</h4>
+                    <p style="color: #555; margin: 0;"><strong>בשורת הפקודה:</strong></p>
+                    <pre style="background: #1e293b; color: #f8fafc; padding: 15px; border-radius: 8px; overflow-x: auto; margin-top: 10px;"><code>pip install -r requirements.txt
+python3 voice_server.py</code></pre>
+                </div>
+            </div>
+
+            <!-- תכונות טכניות -->
+            <div class="section">
+                <h2 style="color: var(--primary); font-size: 1.8rem; margin-bottom: 20px; border-bottom: 3px solid var(--primary); padding-bottom: 10px;">⚡ תכונות טכניות</h2>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">💾 שמירת נתונים</h4>
+                        <p style="color: #555; line-height: 1.6;">שמירה אוטומטית ב-LocalStorage, כל שינוי נשמר מיידית</p>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">🎨 ממשק משתמש</h4>
+                        <p style="color: #555; line-height: 1.6;">עיצוב נקי ומודרני עם תמיכה מלאה ב-RTL</p>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">📄 ייצוא PDF</h4>
+                        <p style="color: #555; line-height: 1.6;">PDF מעוצב ומסודר עם תמיכה בעברית מלאה</p>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">🎤 עוזר קולי מקומי</h4>
+                        <p style="color: #555; line-height: 1.6;">שרת Python עם Google Speech API לתימלול בעברית</p>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">📊 סטטיסטיקה חכמה</h4>
+                        <p style="color: #555; line-height: 1.6;">ניתוח אוטומטי של דפוסי אירוח ומעקב אורחים</p>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); margin-bottom: 10px;">🌐 מלא עברית</h4>
+                        <p style="color: #555; line-height: 1.6;">ממשק מלא בעברית עם תמיכה ב-RTL מלאה</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- כפתור העוזר הקולי הצף -->
+    <button class="voice-btn" id="voice-btn-floating" title="עוזר קולי" onclick="if(window.voiceWizard) window.voiceWizard.startFlow(FLOW_ADD_GUEST, {})">
+        🎤
+    </button>
+
+    <!-- טוען ה-JavaScript של האשף הקולי -->
+    <script src="./voice-assistant.js"></script>
+
+    <script>
+        // אתחול האשף הקולי בעת טעינת הדף
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('[App] Initializing Voice Wizard...');
+            window.voiceWizard = new VoiceWizard();
+        });
+    </script>
+</body>
+</html>
