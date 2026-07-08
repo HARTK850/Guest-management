@@ -224,6 +224,10 @@ class VoiceWizard {
     /** מצב האשף הנוכחי */
     this._state = 'idle'; // 'idle' | 'playing' | 'listening' | 'confirming' | 'speaking'
 
+    /** מונה ניסיונות חוזרים - מונע לולאה אינסופית */
+    this._retryCount = 0;
+    this._maxRetries = 2;
+
     /** הזרימה הפעילה כרגע */
     this._currentFlow = null;
 
@@ -627,6 +631,9 @@ class VoiceWizard {
       return;
     }
 
+    this._retryCount = 0; // איפוס מונה ניסיונות לכל שלב חדש
+    this._errorHandled = false;
+
     const step = this._currentFlow[this._stepIndex];
     this._updateProgress();
     this._updateHint(step.hint || '');
@@ -700,6 +707,7 @@ class VoiceWizard {
     this._setMicState('listening');
     this._setWavesActive(true);
     this._setMessage('דבר עכשיו...');
+    this._errorHandled = false; // מניעת טיפול כפול ב-onerror + onend
 
     try {
       this._recognition.start();
@@ -719,6 +727,8 @@ class VoiceWizard {
   }
 
   _handleResult(event) {
+    this._errorHandled = true; // יש תוצאה - לא לטפל ב-onend כשגיאה
+    this._retryCount = 0; // הצלחה - איפוס מונה
     const rawTranscript = event.results[0][0].transcript;
     const command = detectCommand(rawTranscript);
 
@@ -755,31 +765,56 @@ class VoiceWizard {
   }
 
   _handleError(event) {
+    if (this._errorHandled) return; // כבר טופל ע"י onresult
+    this._errorHandled = true;
+
     const errCode = event.error || 'unknown';
 
     this._setMicState('idle');
     this._setWavesActive(false);
+    this._setStatusLabel('');
 
     if (errCode === 'no-speech') {
-      this._setMessage('לא זוהה קול. נסה שוב.');
-      setTimeout(() => this._redoStep(), 1500);
+      // לא אמרו כלום - ניסיון חוזר אחד בלבד ללא הקראה מחדש
+      this._retryCount++;
+      if (this._retryCount <= this._maxRetries) {
+        this._setMessage('לא זוהה קול. מאזין שוב...');
+        setTimeout(() => this._startListening(), 1000);
+      } else {
+        this._retryCount = 0;
+        this._setMessage('לא זוהה קול. לחץ "הקלט שוב" לנסות מחדש.');
+      }
     } else if (errCode === 'not-allowed' || errCode === 'permission-denied') {
+      this._retryCount = 0;
       this._handleNoMicrophone();
     } else if (errCode === 'network') {
-      this._setMessage('בעיית רשת. נסה שוב.');
-      setTimeout(() => this._redoStep(), 2000);
+      // שגיאת רשת - לא ניסיון חוזר אוטומטי, מציג הודעה ומחכה לפעולת משתמש
+      this._retryCount = 0;
+      this._setMessage('זיהוי קול דורש חיבור לאינטרנט. בדוק חיבור ולחץ "הקלט שוב".');
+    } else if (errCode === 'aborted' || errCode === 'start-failed') {
+      // בוטל ע"י הקוד עצמו - לא מציג שגיאה
+      this._retryCount = 0;
     } else {
-      this._setMessage(`שגיאת זיהוי (${errCode}). נסה שוב.`);
-      setTimeout(() => this._redoStep(), 2000);
+      this._retryCount = 0;
+      this._setMessage('שגיאת זיהוי. לחץ "הקלט שוב" לנסות מחדש.');
     }
   }
 
   _handleRecognitionEnd() {
-    // אם מצב עדיין 'listening' (לא הגיע תוצאה) - כנראה לא זוהה קול
-    if (this._state === 'listening') {
+    // אם מצב עדיין 'listening' ולא הגיע תוצאה ולא שגיאה מפורשת - כנראה הסתיים בלי קול
+    if (this._state === 'listening' && !this._errorHandled) {
+      this._errorHandled = true;
       this._setMicState('idle');
       this._setWavesActive(false);
       this._setStatusLabel('');
+      this._retryCount++;
+      if (this._retryCount <= this._maxRetries) {
+        this._setMessage('לא זוהה קול. מאזין שוב...');
+        setTimeout(() => this._startListening(), 800);
+      } else {
+        this._retryCount = 0;
+        this._setMessage('לא זוהה קול. לחץ "הקלט שוב" לנסות מחדש.');
+      }
     }
   }
 
