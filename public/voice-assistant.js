@@ -255,8 +255,22 @@ class VoiceWizard {
   // ----------------------------------------------------------
 
   _initRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // בדיקה האם רצים בתוך Electron עם Python transcription
+    this._usePythonTranscription =
+      typeof window !== 'undefined' &&
+      window.electronAPI &&
+      typeof window.electronAPI.transcribeAudio === 'function';
 
+    if (this._usePythonTranscription) {
+      // מצב Python: MediaRecorder → WAV → Python speech_recognition
+      this._recognitionSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      this._mediaRecorder = null;
+      this._mediaChunks = [];
+      return;
+    }
+
+    // fallback: Web Speech API (דפדפן רגיל)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.warn('[VoiceWizard] SpeechRecognition אינו נתמך בסביבה זו');
       this._recognitionSupported = false;
@@ -707,23 +721,132 @@ class VoiceWizard {
     this._setMicState('listening');
     this._setWavesActive(true);
     this._setMessage('דבר עכשיו...');
-    this._errorHandled = false; // מניעת טיפול כפול ב-onerror + onend
+    this._errorHandled = false;
 
-    try {
-      this._recognition.start();
-    } catch (err) {
-      console.error('[VoiceWizard] שגיאה בהפעלת הזיהוי:', err);
-      this._handleError({ error: 'start-failed' });
+    if (this._usePythonTranscription) {
+      this._startMediaRecorder();
+    } else {
+      try {
+        this._recognition.start();
+      } catch (err) {
+        console.error('[VoiceWizard] שגיאה בהפעלת הזיהוי:', err);
+        this._handleError({ error: 'start-failed' });
+      }
     }
   }
 
   _stopListening() {
-    if (this._recognition) {
+    if (this._usePythonTranscription) {
+      if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+        this._mediaRecorder.stop();
+      }
+    } else if (this._recognition) {
       try { this._recognition.stop(); } catch (_) { /* מתעלם */ }
     }
     this._setMicState('idle');
     this._setWavesActive(false);
     this._setStatusLabel('');
+  }
+
+  // ---- הקלטה דרך MediaRecorder + Python ----
+
+  _startMediaRecorder() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        this._mediaChunks = [];
+        this._recordingStream = stream;
+
+        // הגבלת הקלטה ל-8 שניות
+        this._recordingTimer = setTimeout(() => {
+          if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+            this._mediaRecorder.stop();
+          }
+        }, 8000);
+
+        const options = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? { mimeType: 'audio/webm;codecs=opus' }
+          : {};
+
+        this._mediaRecorder = new MediaRecorder(stream, options);
+        this._mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) this._mediaChunks.push(e.data);
+        };
+        this._mediaRecorder.onstop = () => this._onRecordingStop();
+        this._mediaRecorder.start();
+      })
+      .catch((err) => {
+        this._handleError({ error: 'not-allowed' });
+      });
+  }
+
+  async _onRecordingStop() {
+    clearTimeout(this._recordingTimer);
+
+    // עצור את זרם המיקרופון
+    if (this._recordingStream) {
+      this._recordingStream.getTracks().forEach((t) => t.stop());
+      this._recordingStream = null;
+    }
+
+    if (this._mediaChunks.length === 0) {
+      this._handleError({ error: 'no-speech' });
+      return;
+    }
+
+    this._setStatusLabel('מעבד...', 'listening');
+    this._setMessage('מתמלל...');
+
+    // המר ל-ArrayBuffer
+    const blob = new Blob(this._mediaChunks, { type: this._mediaChunks[0].type });
+    const arrayBuffer = await blob.arrayBuffer();
+
+    try {
+      const result = await window.electronAPI.transcribeAudio(arrayBuffer);
+
+      if (result.ok && result.text && result.text.trim()) {
+        // הדמה של onresult
+        this._handlePythonResult(result.text.trim());
+      } else if (result.error === 'no_speech') {
+        this._handleError({ error: 'no-speech' });
+      } else if (result.error === 'network_unavailable') {
+        this._handleError({ error: 'network' });
+      } else {
+        this._handleError({ error: result.error || 'unknown' });
+      }
+    } catch (err) {
+      this._handleError({ error: 'ipc_error' });
+    }
+  }
+
+  _handlePythonResult(rawTranscript) {
+    this._errorHandled = true;
+    this._retryCount = 0;
+
+    const command = detectCommand(rawTranscript);
+    if (command) {
+      this._executeCommand(command, rawTranscript);
+      return;
+    }
+
+    const cleanText = stripCommandWords(rawTranscript);
+    if (!cleanText) {
+      this._setMessage('לא הצלחתי לשמוע. נסה שוב.');
+      this._redoStep();
+      return;
+    }
+
+    const step = this._currentFlow[this._stepIndex];
+    const parsedValue = step.parser ? step.parser(cleanText) : cleanText;
+    this._showTranscript(cleanText);
+
+    this._speak(`הבנתי שאמרת: ${cleanText}`, () => {
+      this._collected[step.fieldKey] = parsedValue;
+      this._stepIndex++;
+      this._playAudio('next.mp3', () => {
+        this._clearTranscript();
+        this._runStep();
+      });
+    });
   }
 
   _handleResult(event) {
@@ -788,9 +911,20 @@ class VoiceWizard {
       this._retryCount = 0;
       this._handleNoMicrophone();
     } else if (errCode === 'network') {
-      // שגיאת רשת - לא ניסיון חוזר אוטומטי, מציג הודעה ומחכה לפעולת משתמש
       this._retryCount = 0;
-      this._setMessage('זיהוי קול דורש חיבור לאינטרנט. בדוק חיבור ולחץ "הקלט שוב".');
+      if (this._usePythonTranscription) {
+        // בפייתון: ננסה שוב - הבעיה יכולה להיות ארעית
+        this._retryCount++;
+        if (this._retryCount <= this._maxRetries) {
+          this._setMessage('שגיאת רשת בתמלול. מנסה שוב...');
+          setTimeout(() => this._startListening(), 1500);
+        } else {
+          this._retryCount = 0;
+          this._setMessage('שגיאת רשת. ודא שפייתון ו-SpeechRecognition מותקנים.');
+        }
+      } else {
+        this._setMessage('זיהוי קול דורש חיבור לאינטרנט. לחץ "הקלט שוב".');
+      }
     } else if (errCode === 'aborted' || errCode === 'start-failed') {
       // בוטל ע"י הקוד עצמו - לא מציג שגיאה
       this._retryCount = 0;
@@ -1089,7 +1223,7 @@ function initVoiceAssistant() {
       {},
       (result) => {
         if (!result.hebrewDate) { alert('לא סופק תאריך.'); return; }
-        // שמור את התאריך העברי ישירות כ-string (לא תאריך לועזי)
+        // שמור את התאריך העברי ישירות כ-string (לא תאריך לו��זי)
         this.data.unshift({
           id: this.generateId(),
           date: result.hebrewDate,        // תאריך עברי כמחרוזת
