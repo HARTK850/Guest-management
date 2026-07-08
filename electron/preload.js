@@ -13,4 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   // אינדיקטור: רץ בתוך Electron
   isElectron: true,
+  // תמלול שמע דרך Python speech_recognition
+  // מקבל ArrayBuffer של WAV, מחזיר Promise<{ok, text?, error?}>
+  transcribeAudio: (wavArrayBuffer) =>
+    ipcRenderer.invoke('transcribe-audio', wavArrayBuffer),
 });
