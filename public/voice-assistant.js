@@ -247,28 +247,29 @@ class VoiceWizard {
   }
 
   // ----------------------------------------------------------
-  // 3a. אתחול Web Speech API
+  // 3a. אתחול שרת תימלול Python
   // ----------------------------------------------------------
 
   _initRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    // בדיקה שהדפדפן תומך ב-getUserMedia עבור הקלטה
+    const hasMediaRecorder = !!(
+      navigator.mediaDevices &&
+      navigator.mediaDevices.getUserMedia &&
+      typeof MediaRecorder !== 'undefined'
+    );
 
-    if (!SpeechRecognition) {
-      console.warn('[VoiceWizard] SpeechRecognition אינו נתמך בסביבה זו');
+    if (!hasMediaRecorder) {
+      console.warn('[VoiceWizard] MediaRecorder אינו נתמך בסביבה זו');
       this._recognitionSupported = false;
       return;
     }
 
     this._recognitionSupported = true;
-    this._recognition = new SpeechRecognition();
-    this._recognition.lang = 'he-IL';
-    this._recognition.continuous = false;
-    this._recognition.interimResults = false;
-    this._recognition.maxAlternatives = 1;
-
-    this._recognition.onresult = (event) => this._handleResult(event);
-    this._recognition.onerror = (event) => this._handleError(event);
-    this._recognition.onend = () => this._handleRecognitionEnd();
+    this._mediaRecorder = null;
+    this._audioChunks = [];
+    
+    // כתובת השרת - דיפולט: localhost:5000 (ניתן להעביר environment variable)
+    this._voiceServerUrl = window.VOICE_SERVER_URL || 'http://localhost:5000';
   }
 
   // ----------------------------------------------------------
@@ -689,70 +690,142 @@ class VoiceWizard {
   // 3e. מנוע ההקלטה
   // ----------------------------------------------------------
 
-  _startListening() {
-    if (!this._recognitionSupported) {
-      this._handleNoMicrophone();
+  async _startListening() {
+  if (!this._recognitionSupported) {
+  this._handleNoMicrophone();
+  return;
+  }
+  
+  this._setState('listening');
+  this._setStatusLabel('מקשיב...', 'listening');
+  this._setMicState('listening');
+  this._setWavesActive(true);
+  this._setMessage('דבר עכשיו...');
+  
+  try {
+  // קבלת הרשאה למיקרופון
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  
+  // יצירת MediaRecorder
+  this._mediaRecorder = new MediaRecorder(stream);
+  this._audioChunks = [];
+  
+  this._mediaRecorder.ondataavailable = (event) => {
+    this._audioChunks.push(event.data);
+  };
+  
+  this._mediaRecorder.onstop = async () => {
+    // העברה לשרת Python לתימלול
+    await this._sendAudioToServer();
+    // עצירת כל הזרמים
+    stream.getTracks().forEach(track => track.stop());
+  };
+  
+  // התחלת הקלטה
+  this._mediaRecorder.start();
+  
+  // עצירה אוטומטית אחרי 10 שניות
+  this._recordingTimeout = setTimeout(() => {
+    if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+    this._mediaRecorder.stop();
+    }
+  }, 10000);
+  
+  } catch (err) {
+  console.error('[VoiceWizard] שגיאה בהקלטה:', err);
+  if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+    this._handleNoMicrophone();
+  } else {
+    this._handleError({ error: 'start-failed' });
+  }
+  }
+  }
+  
+  async _sendAudioToServer() {
+  try {
+    this._setStatusLabel('שולח לשרת תימלול...', 'processing');
+    this._setMessage('עיבוד הקול...');
+    
+    // יצירת Blob מהנתונים
+    const audioBlob = new Blob(this._audioChunks, { type: 'audio/webm' });
+    
+    // שליחה לשרת Python
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.webm');
+    
+    const response = await fetch(`${this._voiceServerUrl}/api/transcribe`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.status === 'success') {
+      // טימלול הצליח - טיפול בתוצאה
+      this._handleTranscriptResult(result.transcript);
+    } else {
+      // שגיאה מהשרת
+      this._handleError({ error: result.error || 'unknown' });
+    }
+  } catch (err) {
+    console.error('[VoiceWizard] שגיאה בשליחה לשרת:', err);
+    this._handleError({ error: 'network' });
+  }
+  }
+  
+  _handleTranscriptResult(rawTranscript) {
+  const command = detectCommand(rawTranscript);
+  
+  if (command) {
+    this._executeCommand(command, rawTranscript);
+    return;
+  }
+  
+  if (!this._currentFlow || this._stepIndex >= this._currentFlow.length) {
+    this._setMessage('לא בתרימה פעילה.');
+    return;
+  }
+  
+  const step = this._currentFlow[this._stepIndex];
+  this._setTranscript(rawTranscript);
+  
+  try {
+    const parsed = step.parser(rawTranscript);
+    
+    if (step.validate && !step.validate(parsed)) {
+      this._setMessage('ערך לא תקין. נסה שוב.');
+      setTimeout(() => this._redoStep(), 1500);
       return;
     }
-
-    this._setState('listening');
-    this._setStatusLabel('מקשיב...', 'listening');
-    this._setMicState('listening');
-    this._setWavesActive(true);
-    this._setMessage('דבר עכשיו...');
-
-    try {
-      this._recognition.start();
-    } catch (err) {
-      console.error('[VoiceWizard] שגיאה בהפעלת הזיהוי:', err);
-      this._handleError({ error: 'start-failed' });
-    }
-  }
-
-  _stopListening() {
-    if (this._recognition) {
-      try { this._recognition.stop(); } catch (_) { /* מתעלם */ }
-    }
+    
+    this._collected[step.fieldKey] = parsed;
+    
+    this._setState('confirming');
+    this._setStatusLabel('מחכה לאישור...', 'confirming');
     this._setMicState('idle');
     this._setWavesActive(false);
-    this._setStatusLabel('');
+    
+    setTimeout(() => this._nextStep(), 2000);
+  } catch (err) {
+    console.error('[VoiceWizard] שגיאת עיבוד:', err);
+    this._setMessage('שגיאה בעיבוד. נסה שוב.');
+    setTimeout(() => this._redoStep(), 1500);
+  }
+  }
+  
+  _stopListening() {
+  if (this._mediaRecorder && this._mediaRecorder.state !== 'inactive') {
+    this._mediaRecorder.stop();
+  }
+  if (this._recordingTimeout) {
+    clearTimeout(this._recordingTimeout);
+  }
+  this._setMicState('idle');
+  this._setWavesActive(false);
+  this._setStatusLabel('');
   }
 
-  _handleResult(event) {
-    const rawTranscript = event.results[0][0].transcript;
-    const command = detectCommand(rawTranscript);
 
-    if (command) {
-      this._executeCommand(command, rawTranscript);
-      return;
-    }
-
-    const cleanText = stripCommandWords(rawTranscript);
-    if (!cleanText) {
-      this._setMessage('לא הצלחתי לשמוע. נסה שוב.');
-      this._redoStep();
-      return;
-    }
-
-    const step = this._currentFlow[this._stepIndex];
-    const parsedValue = step.parser ? step.parser(cleanText) : cleanText;
-
-    // הצג תמלול למשתמש
-    this._showTranscript(cleanText);
-
-    // הקרא את מה שהובן
-    this._speak(`הבנתי שאמרת: ${cleanText}`, () => {
-      // שמור ועבור לשלב הבא
-      this._collected[step.fieldKey] = parsedValue;
-      this._stepIndex++;
-
-      // השמע קובץ next.mp3 ואז עבור לשלב הבא
-      this._playAudio('next.mp3', () => {
-        this._clearTranscript();
-        this._runStep();
-      });
-    });
-  }
 
   _handleError(event) {
     const errCode = event.error || 'unknown';
@@ -998,6 +1071,10 @@ class VoiceWizard {
     if (!el) return;
     el.textContent = text;
     el.className = cls;
+  }
+
+  _setTranscript(text) {
+    this._showTranscript(text);
   }
 
   _showTranscript(text) {
