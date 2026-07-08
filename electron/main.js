@@ -5,6 +5,9 @@
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process');
+const fs = require('fs');
+const os = require('os');
 
 // ===== יצירת חלון ראשי =====
 function createWindow() {
@@ -58,6 +61,54 @@ app.whenReady().then(() => {
 // סגור את האפליקציה כאשר כל החלונות סגורים (Windows / Linux)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+// ===== IPC: תמלול שמע דרך Python =====
+ipcMain.handle('transcribe-audio', async (_event, wavBuffer) => {
+  return new Promise((resolve) => {
+    // כתוב את ה-WAV לקובץ זמני
+    const tmpFile = path.join(os.tmpdir(), `vw_${Date.now()}.wav`);
+    fs.writeFileSync(tmpFile, Buffer.from(wavBuffer));
+
+    // מצא את נתיב הפייתון
+    const scriptPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'electron', 'transcribe.py')
+      : path.join(__dirname, 'transcribe.py');
+
+    // הפעל python / python3
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const proc = spawn(pythonCmd, [scriptPath, tmpFile]);
+
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    proc.on('close', () => {
+      // מחק קובץ זמני
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+
+      try {
+        const result = JSON.parse(stdout.trim());
+        resolve(result);
+      } catch (_) {
+        resolve({ ok: false, error: stderr || 'parse_error' });
+      }
+    });
+
+    proc.on('error', (err) => {
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      resolve({ ok: false, error: `python_not_found: ${err.message}` });
+    });
+
+    // timeout של 15 שניות
+    setTimeout(() => {
+      proc.kill();
+      try { fs.unlinkSync(tmpFile); } catch (_) {}
+      resolve({ ok: false, error: 'timeout' });
+    }, 15000);
+  });
 });
 
 // ===== IPC: הרשאת מיקרופון =====
