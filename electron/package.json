@@ -2,6 +2,11 @@
   "name": "shabbat-hosting-manager",
   "version": "1.0.0",
   "description": "ניהול אירוח לשבת - עוזר קולי",
+"repository": {
+  "type": "git",
+  "url": "https://github.com/HARTK850/Guest-management.git"
+},
+  
   "main": "main.js",
   "scripts": {
     "start": "electron .",
