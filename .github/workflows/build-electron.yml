@@ -2,50 +2,163 @@ name: Build Electron - Windows Setup.exe
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
-  workflow_dispatch:      # הפעלה ידנית מהממשק
+
+  workflow_dispatch:
+
 
 permissions:
-  contents: write         # נדרש ליצירת Release
+  contents: write
+
 
 jobs:
+
   build-windows:
+
+    name: Build Windows Application
+
     runs-on: windows-latest
 
+
     steps:
-      # ===== 1. Clone =====
+
+
+      # ==========================================
+      # 1. Clone repository
+      # ==========================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ===== 2. Node.js =====
+
+
+      # ==========================================
+      # 2. Setup Python environment
+      # ==========================================
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+
+
+      # ==========================================
+      # 3. Install Python packages
+      # ==========================================
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install SpeechRecognition
+          pip install pyinstaller
+          pip install pyaudio
+
+
+
+      # ==========================================
+      # 4. Build Python speech executable
+      # ==========================================
+      - name: Build transcribe.exe from Python
+        working-directory: electron
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --name transcribe ^
+            transcribe.py
+
+
+
+      # ==========================================
+      # 5. Verify Python executable exists
+      # ==========================================
+      - name: Check transcribe.exe
+        working-directory: electron
+        run: |
+          dir dist
+          if (!(Test-Path "dist\transcribe.exe")) {
+            echo "transcribe.exe was not created"
+            exit 1
+          }
+        shell: pwsh
+
+
+
+      # ==========================================
+      # 6. Copy executable next to Electron files
+      # ==========================================
+      - name: Copy transcribe.exe
+        working-directory: electron
+        run: |
+          copy dist\transcribe.exe transcribe.exe
+        shell: cmd
+
+
+
+      # ==========================================
+      # 7. Setup Node.js
+      # ==========================================
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: electron/package.json
 
-      # ===== 3. Install Electron dependencies =====
+
+
+      # ==========================================
+      # 8. Install Electron dependencies
+      # ==========================================
       - name: Install Electron dependencies
         working-directory: electron
-        run: npm install
+        run: |
+          npm install
 
-      # ===== 4. Build NSIS installer =====
-      - name: Build Windows installer (Setup.exe)
+
+
+      # ==========================================
+      # 9. Check Electron files
+      # ==========================================
+      - name: Verify Electron files
+        working-directory: electron
+        run: |
+          dir
+          if (!(Test-Path "transcribe.exe")) {
+            echo "Missing transcribe.exe"
+            exit 1
+          }
+        shell: pwsh
+
+
+
+      # ==========================================
+      # 10. Build NSIS installer
+      # ==========================================
+      - name: Build Windows installer
         working-directory: electron
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist -- --publish never
+        run: |
+          npm run dist -- --publish never
 
-      # ===== 5. List output =====
+
+
+      # ==========================================
+      # 11. Show build output
+      # ==========================================
       - name: List build output
-        run: Get-ChildItem -Recurse dist/
+        run: |
+          Get-ChildItem -Recurse dist/
         shell: pwsh
 
-      # ===== 6. Upload artifact =====
-      - name: Upload Setup.exe as artifact
+
+
+      # ==========================================
+      # 12. Upload installer artifact
+      # ==========================================
+      - name: Upload Setup.exe artifact
         uses: actions/upload-artifact@v4
         with:
           name: ShabbatHostingManager-Setup
@@ -53,21 +166,29 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      # ===== 7. Create GitHub Release (only on tag push) =====
+
+
+      # ==========================================
+      # 13. Create GitHub Release on tag
+      # ==========================================
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
+
         with:
           files: dist/*.exe
+
           name: "ניהול אירוח לשבת ${{ github.ref_name }}"
+
           body: |
             ## גרסה ${{ github.ref_name }}
-            
+
             ### הורדה
-            הורד את `Setup.exe` ולחץ להתקנה.
-            
+            הורד את קובץ ההתקנה Setup.exe והפעל אותו.
+
             ### דרישות
-            - Windows 10 / 11 (64-bit)
-            - מיקרופון (לשימוש בעוזר הקולי)
+            - Windows 10 / 11 64-bit
+            - מיקרופון לשימוש בעוזר הקולי
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
