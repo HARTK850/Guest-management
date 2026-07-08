@@ -70,14 +70,13 @@ ipcMain.handle('transcribe-audio', async (_event, wavBuffer) => {
     const tmpFile = path.join(os.tmpdir(), `vw_${Date.now()}.wav`);
     fs.writeFileSync(tmpFile, Buffer.from(wavBuffer));
 
-    // מצא את נתיב הפייתון
-    const scriptPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'electron', 'transcribe.py')
-      : path.join(__dirname, 'transcribe.py');
+// מצא את קובץ התמלול המוכן
+const transcriberPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'transcribe.exe')
+  : path.join(__dirname, 'transcribe.exe');
 
-    // הפעל python / python3
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-    const proc = spawn(pythonCmd, [scriptPath, tmpFile]);
+// הפעל את transcribe.exe
+const proc = spawn(transcriberPath, [tmpFile]);
 
     let stdout = '';
     let stderr = '';
