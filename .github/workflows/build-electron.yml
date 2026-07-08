@@ -37,7 +37,7 @@ jobs:
         working-directory: electron
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run dist
+        run: npm run dist -- --publish never
 
       # ===== 5. List output =====
       - name: List build output
