@@ -32,7 +32,7 @@
   "**/*",
   "../public/**/*",
   "../assets/**/*",
-  "transcribe.py"
+  "transcribe.exe"
 ],
 "extraResources": [
   {
