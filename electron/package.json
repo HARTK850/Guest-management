@@ -28,11 +28,20 @@
       "output": "../dist"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "../public/**/*",
-      "../assets/**/*"
-    ],
+  "**/*",
+  "../public/**/*",
+  "../assets/**/*"
+],
+"extraResources": [
+  {
+    "from": "../public",
+    "to": "public"
+  },
+  {
+    "from": "../assets",
+    "to": "assets"
+  }
+]
     "win": {
       "target": [
         {
