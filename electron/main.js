@@ -27,7 +27,11 @@ function createWindow() {
   });
 
   // טעינת קובץ ה-HTML הראשי
-  win.loadFile(path.join(__dirname, '..', 'public', 'index.html'));
+  const indexPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'public', 'index.html')
+  : path.join(__dirname, '..', 'public', 'index.html');
+
+win.loadFile(indexPath);
 
   // הצג את החלון רק לאחר שסיים לטעון (מניעת מסך לבן)
   win.once('ready-to-show', () => {
